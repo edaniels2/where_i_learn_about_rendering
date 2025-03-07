@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script type="module">
+    import { main } from './projection.js';
+    window.render = main;
+  </script>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+    }
+    canvas {
+      margin: auto;
+      width: 400px;
+      height: 400px;
+    }
+  </style>
+</head>
+<body onload="render()">
+  <canvas width="400" height="400"></canvas>
+</body>
+</html>
