@@ -1,4 +1,4 @@
-import { Vec3 } from "../vector.js";
+import { Vec3 } from '../vector.js';
 
 /**
  * Entirely copied from https://github.com/scratchapixel/scratchapixel-code/blob/main/introduction-to-ray-tracing/raytracer.cpp
@@ -211,7 +211,7 @@ export function main() {
     new Sphere(new Vec3(0, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(2.5, 3, 2.5)), // light source
     new Sphere(new Vec3(0, 10, -5), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(1, 1, 1)), // light source
 
-    new Sphere(new Vec3(0, -10004, -20), 10000, new Vec3(0.09, 0.10, 0.11), 0, 0), // creates a "floor"
+    new Sphere(new Vec3(0, -10004, -20), 10000, new Vec3(0.09, 0.10, 0.11), 0, 0), // creates a 'floor'
 
     new Sphere(new Vec3(0, 0, -20), 4, new Vec3(1.00, 0.32, 0.36), 1, 0.5),
     new Sphere(new Vec3(-3, 2, -24), 3, new Vec3(0.28, 0.45, 0.26), 0, 0),

@@ -1,4 +1,4 @@
-import { Matrix, SquareMatrix } from "./matrix.js";
+import { Matrix } from './matrix.js';
 
 export class Vec3 {
   /**@type{Vec3}*/#normalized;

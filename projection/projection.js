@@ -1,42 +1,25 @@
-import { SquareMatrix } from "../matrix.js";
-import { Vec3 } from "../vector.js";
+import { Cube, Geometry } from './geometry.js';
+import { Vec3 } from '../vector.js';
 
+const worldW = 1, worldH = 1;
+const halfWorldW = worldW / 2, halfWorldH = worldH / 2;
 let prevT = 0, prevX = 0, prevY = 0;
-let rotateX = 0, rotateY = 0;
-let width, height;
+let rasterW, rasterH;
 export function main() {
   const canvas = document.querySelector('canvas');
-  width = canvas.width;
-  height = canvas.height;
+  rasterW = canvas.width;
+  rasterH = canvas.height;
   const ctx = canvas.getContext('2d');
-  const facets = [
-    // back
-    [new Vec3(-.5, .5, -2), new Vec3(-.5, -.5, -2), new Vec3(.5, -.5, -2)],
-    [new Vec3(-.5, .5, -2), new Vec3(.5, .5, -2), new Vec3(.5, -.5, -2)],
-    // bottom
-    [new Vec3(-.5, -.5, -2), new Vec3(-.5, -.5, -1), new Vec3(.5, -.5, -1)],
-    [new Vec3(-.5, -.5, -2), new Vec3(.5, -.5, -2), new Vec3(.5, -.5, -1)],
-    // right
-    [new Vec3(.5, .5, -1), new Vec3(.5, .5, -2), new Vec3(.5, -.5, -2)],
-    [new Vec3(.5, .5, -1), new Vec3(.5, -.5, -1), new Vec3(.5, -.5, -2)],
-    // left
-    [new Vec3(-.5, .5, -1), new Vec3(-.5, .5, -2), new Vec3(-.5, -.5, -2)],
-    [new Vec3(-.5, .5, -1), new Vec3(-.5, -.5, -1), new Vec3(-.5, -.5, -2)],
-    // top
-    [new Vec3(.5, .5, -1), new Vec3(-.5, .5, -1), new Vec3(-.5, .5, -2)],
-    [new Vec3(-.5, .5, -2), new Vec3(.5, .5, -2), new Vec3(.5, .5, -1)],
-    // front
-    [new Vec3(-.5, .5, -1), new Vec3(-.5, -.5, -1), new Vec3(.5, -.5, -1)],
-    [new Vec3(-.5, .5, -1), new Vec3(.5, .5, -1), new Vec3(.5, -.5, -1)],
-  ];
+  // TODO update render fn to handle multiple objects
+  const shape = new Cube(new Vec3(0, 0, -2));
 
-  // 
+  // WIP; supposedly a perspective projection matrix
   // let t  = new SquareMatrix();
   // const n = 0.5;
   // const f = 5.5;
   // const fov = 60;
-  // const s = 1 / Math.tan(fov * Math.PI / 360); // if not square scale x and y must be separated using aspect ratio
-  // t.set([ // wip; supposedly a perspective projection matrix
+  // const s = 1 / Math.tan(fov * Math.PI / 360); // if not square scale x and y must account for aspect ratio
+  // t.set([
   //   [s, 0, 0, 0],
   //   [0, s, 0, 0],
   //   [0, 0, -f / (f - n), -1],
@@ -52,68 +35,80 @@ export function main() {
     document.addEventListener('pointerup', () => document.removeEventListener('pointermove', mouseMove));
   }
 
+  const movementScaleX = 3 / canvas.getBoundingClientRect().width;
+  const movementScaleY = 3 / canvas.getBoundingClientRect().height;
   function mouseMove(/**@type{PointerEvent}*/event) {
-    rotateY += (event.pageX - prevX) * 5e-3;
-    rotateX += (event.pageY - prevY) * 5e-3;
+    shape.rotateY((event.pageX - prevX) * movementScaleX);
+    shape.rotateX((event.pageY - prevY) * movementScaleY);
     prevX = event.pageX;
     prevY = event.pageY;
   }
 
-  requestAnimationFrame(() => render(facets, ctx));
+  requestAnimationFrame(() => render(shape, ctx));
 }
 
-function render(/**@type{Vec3[][]}*/facets, /**@type{CanvasRenderingContext2D}*/ctx) {
-  // get current points in the rotated coordinate system
+function render(/**@type{Geometry}*/shape, /**@type{CanvasRenderingContext2D}*/ctx) {
+  const facets = shape.facets;
   const frameFacets = [];
   for (const facet of facets) {
     const currentFacet = [];
+    // convert to world space
     for (const point of facet) {
-      // this is not the way it's generally done
-      currentFacet.push(point.transform(
-        SquareMatrix.translate(0, 0, 1.5) // align with world axes (defined the cube with z = -1.5 at the center)
-          .multiply(SquareMatrix.rotationX(rotateX))
-          .multiply(SquareMatrix.rotationY(rotateY))
-          .multiply(SquareMatrix.translate(0, 0, -1.5)) // put it back to original distance
-      ));
+      currentFacet.push(point.transform(shape.rotationMatrix.multiply(shape.positionMatrix)));
+      currentFacet.color = facet.color;
+      currentFacet.label = facet.label;
     }
-    frameFacets.push(currentFacet);
-  }
-  // sort by depth so that only the camera facing sides are visible;
-  // uses average z of coordinates for each plane
-  frameFacets.sort((a, b) => {
-    const avgZa = a.reduce((total, p) => total + p.z, 0) / a.length;
-    const avgZb = b.reduce((total, p) => total + p.z, 0) / b.length;
-    if (avgZa === avgZb) {
-      return 0;
-    }
-    return avgZa > avgZb ? 1 : -1;
-  });
 
-  ctx.clearRect(0, 0, width, height);
+    // find the normal to the surface and only draw if it points toward the camera
+    const a0 = currentFacet[0].sub(currentFacet[2]);
+    const a1 = currentFacet[1].sub(currentFacet[2]);
+    let aNorm = a0.cross(a1);
+    // if the norm is pointing "in" to the center of the shape it must be reversed
+    if (aNorm.dot(currentFacet[2].transform(shape.positionMatrix.invert())) < 0) {
+      aNorm = aNorm.scale(-1);
+    }
+    if (aNorm.dot(currentFacet[2]) < 0) {
+      frameFacets.push(currentFacet);
+    }
+  }
+
+  ctx.clearRect(0, 0, rasterW, rasterH);
   for (const facet of frameFacets) {
     ctx.beginPath();
     let first = true;
     for (const pt of facet) {
-      const x = (pt.x / -pt.z + 1) / 2 * width;
-      const y = (1 - (pt.y / -pt.z + 1) / 2) * height;
+      // this is the conversion from world coordinates in 3d space
+      // to display coordinates. Ideally figure out how to handle
+      // with a matrix tranform (the perspective projection matrix)
+      const x = (pt.x / -pt.z + halfWorldW) / worldW * rasterW;
+      const y = (1 - (pt.y / -pt.z + halfWorldH) / worldH) * rasterH;
       if (first) {
         ctx.moveTo(x, y);
         first = false;
       } else {
+        ctx.strokeStyle = 'black';
         ctx.lineTo(x, y);
         ctx.stroke();
       }
     }
+    ctx.closePath();
+    if (facet.color instanceof Vec3) {
+      ctx.strokeStyle = `color(display-p3 ${facet.color.x} ${facet.color.y} ${facet.color.z}`;
+      ctx.fillStyle = `color(display-p3 ${facet.color.x} ${facet.color.y} ${facet.color.z}`;
+    } else {
+      ctx.strokeStyle = facet.color;
+      ctx.fillStyle = facet.color;
+    }
     ctx.stroke();
-    ctx.fillStyle = 'lightblue';
     ctx.fill();
   }
 
   requestAnimationFrame(t => {
+    // probably not needed
     if (t === prevT) {
       return;
     }
-    render(facets, ctx);
+    render(shape, ctx);
     prevT = t;
   });
 }
