@@ -6,26 +6,61 @@
   <title>Document</title>
   <script type="module">
     import { main } from './projection.js';
-    window.render = main;
+    window.start = main;
   </script>
   <style>
     body {
       margin: 0;
       display: flex;
+      flex-direction: column;
       height: 100vh;
     }
     canvas {
       margin: auto;
       width: 600px;
       height: 600px;
+      pointer-events: all;
     }
-    p {
+    div.abs {
       position: absolute;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      margin: 0;
+    }
+    div {
+      margin: 8px;
     }
   </style>
 </head>
-<body onload="render()">
+<body onload="start()">
   <p>You can click and drag it around to rotate</p>
-  <canvas width="1200" height="1200"></canvas>
+  <p>Lighting</p>
+  <div>
+    Origin
+    <label>
+      x
+      <input id="lightX" type="number" size="1">
+    </label>
+    <label>
+      y
+      <input id="lightY" type="number" size="1">
+    </label>
+    <label>
+      z
+      <input id="lightZ" type="number" size="1">
+    </label>
+  </div>
+  <div>
+    <label>
+      Ambient (%)
+      <input id="lightA" type="number" size="4">
+    </label>
+  </div>
+
+  <div class="abs">
+    <canvas width="1200" height="1200"></canvas>
+  </div>
 </body>
 </html>

@@ -41,6 +41,24 @@ export class Geometry {
   rotateZ(/**@type{number}*/radians) {
     this.rotationMatrix = this.rotationMatrix.multiply(SquareMatrix.rotationZ(radians));
   }
+
+  get depth() {
+    return this.positionMatrix[3][2] * -1; // maybe don't invert?
+  }
+
+  get topLeft() {
+    return new Vec3(
+      this.positionMatrix[3][0] + this.left,
+      this.positionMatrix[3][1] + this.top,
+      this.depth);
+  }
+
+  get bottomRight() {
+    return new Vec3(
+      this.positionMatrix[3][0] + this.right,
+      this.positionMatrix[3][1] + this.bottom,
+      this.depth);
+  }
 }
 
 export class Cube extends Geometry {
