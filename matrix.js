@@ -53,6 +53,16 @@ export class SquareMatrix extends Matrix {
     }
   }
 
+  copy() {
+    const result = new SquareMatrix(this.length);
+    for (let i = 0; i < this.length; i++) {
+      for (let j = 0; j < this[0].length; j++) {
+        result[i][j] = this[i][j];
+      }
+    }
+    return result;
+  }
+
   multiply(/** @type {Array} */ m) {
     if (this[0].length != m.length) {
       throw new Error('Matrices incompatible for multiplication');
@@ -60,12 +70,11 @@ export class SquareMatrix extends Matrix {
     const result = new SquareMatrix(this.length);
     for (let i = 0; i < this.length; i++) {
       for (let j = 0; j < m[0].length; j++) {
-        let d = 0;
-        for (let p = 0; p < this[0].length; p++) {
-          d += this[i][p] * m[p][j];
-        }
         result[i] ??= [];
-        result[i][j] = d;
+        result[i][j] = 0;
+        for (let p = 0; p < this[0].length; p++) {
+          result[i][j] += this[i][p] * m[p][j];
+        }
       }
     }
     return result;
@@ -163,11 +172,19 @@ export class SquareMatrix extends Matrix {
     return result;
   }
 
-  static translate(x, y, z) {
+  static translate(/**@type{number}*/x, /**@type{number}*/y, /**@type{number}*/z) {
     const result = new SquareMatrix;
     result[3][0] = x;
     result[3][1] = y;
     result[3][2] = z;
+    return result;
+  }
+
+  static scale(/**@type{number}*/x, /**@type{number}*/y, z = 1) {
+    const result = new SquareMatrix;
+    result[0][0] = x;
+    result[1][1] = y;
+    result[2][2] = z;
     return result;
   }
 }

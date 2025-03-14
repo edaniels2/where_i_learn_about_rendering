@@ -1,6 +1,7 @@
 import { Matrix } from './matrix.js';
 
 export class Vec3 {
+  /**@type{Vec3}*/#mag;
   /**@type{Vec3}*/#normalized;
   #x;
   #y;
@@ -32,15 +33,18 @@ export class Vec3 {
     this.#normalized = undefined;
   }
 
+  get magnitude() {
+    if (!this.#mag) {
+      const magSq = this.dot(this);
+      this.#mag = Math.sqrt(magSq);
+    }
+    return this.#mag;
+  }
+
   /**@returns{Vec3}*/
   normalize() {
     if (!this.#normalized) {
-      const magSq = this.dot(this);
-      if (magSq < 0) {
-        console.error('Negative magnitude? Fairly sure this is not possible');
-        return this;
-      }
-      const coef = 1 / Math.sqrt(magSq);
+      const coef = 1 / this.magnitude;
       this.#normalized = new Vec3(this.x * coef, this.y * coef, this.z * coef);
     }
     return this.#normalized;

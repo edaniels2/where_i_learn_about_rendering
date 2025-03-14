@@ -14,11 +14,12 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      user-select: none;
     }
     canvas {
       margin: auto;
-      width: 600px;
-      height: 600px;
+      width: 100%;
+      height: 100%;
       pointer-events: all;
     }
     div.abs {
@@ -29,38 +30,45 @@
       pointer-events: none;
       margin: 0;
     }
+    div.settings {
+      margin: 0;
+      pointer-events: all;
+      z-index: 1;
+    }
     div {
       margin: 8px;
     }
   </style>
 </head>
 <body onload="start()">
-  <p>You can click and drag it around to rotate</p>
+  <p>You can click and drag stuff around to rotate</p>
   <p>Lighting</p>
-  <div>
-    Origin
-    <label>
-      x
-      <input id="lightX" type="number" size="1">
-    </label>
-    <label>
-      y
-      <input id="lightY" type="number" size="1">
-    </label>
-    <label>
-      z
-      <input id="lightZ" type="number" size="1">
-    </label>
-  </div>
-  <div>
-    <label>
-      Ambient (%)
-      <input id="lightA" type="number" size="4">
-    </label>
+  <div class="settings">
+    <div>
+      Origin
+      <label>
+        x
+        <input id="lightX" type="number" size="1">
+      </label>
+      <label>
+        y
+        <input id="lightY" type="number" size="1">
+      </label>
+      <label>
+        z
+        <input id="lightZ" type="number" size="1">
+      </label>
+    </div>
+    <div>
+      <label>
+        Ambient (%)
+        <input id="lightA" type="number" size="3" max="100" min="0">
+      </label>
+    </div>
   </div>
 
   <div class="abs">
-    <canvas width="1200" height="1200"></canvas>
+    <canvas></canvas>
   </div>
 </body>
 </html>
