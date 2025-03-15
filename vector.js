@@ -82,6 +82,18 @@ export class Vec3 {
     return new Vec3(coords[0][0], coords[0][1], coords[0][2]);
   }
 
+  sane() {
+    if (isNaN(this.x)) {
+      this.x = 0;
+    }
+    if (isNaN(this.y)) {
+      this.y = 0;
+    }
+    if (isNaN(this.z)) {
+      this.z = 0;
+    }
+  }
+
   toSpherical() {
     // need the transformation here? swaps z and y axes
     // const t = SquareMatrix.zUp();

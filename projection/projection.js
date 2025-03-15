@@ -1,12 +1,17 @@
-import { Cube, Geometry, Pyramid } from './geometry.js';
-import { SquareMatrix } from '../matrix.js';
-import { Vec3 } from '../vector.js';
-import { Teapot } from './teapot.js';
+import { Camera } from './camera.js';
+import { Cube, Pyramid } from './shapes.js';
 import { Dinosaur } from './dino.js';
+import { Geometry } from './geometry.js';
+import { SquareMatrix } from '../matrix.js';
+import { Teapot } from './teapot.js';
+import { Vec3 } from '../vector.js';
 
+
+// pretty happy with everything except detecting click on shapes, it barely works
 
 const projectionMatrix  = new SquareMatrix();
 // move constants to a config file
+const camera = new Camera(new Vec3); // subclass Geometry for the camera
 
 const light = {
   origin: new Vec3(-10, 2, -2),
@@ -25,6 +30,7 @@ let prevT = 0, prevX = 0, prevY = 0;
 let /**@type{number}*/halfWorldW, /**@type{number}*/halfWorldH;
 let /**@type{number}*/rasterW, /**@type{number}*/rasterH;
 let /**@type{HTMLCanvasElement}*/canvas, /**@type{CanvasRenderingContext2D}*/ctx;
+let movement = new Vec3;
 
 export function main() {
   canvas = document.querySelector('canvas');
@@ -55,6 +61,7 @@ export function main() {
   //   [0, 0, tz, 0],
   // ]);
 
+  initializeKeyboardEvents();
   initializePointerEvents();
   initializeLighting();
 
@@ -62,13 +69,20 @@ export function main() {
 }
 
 function render() {
+  const cameraTransform = camera.positionAndScale.multiply(camera.rotation);
   ctx.clearRect(0, 0, rasterW, rasterH);
-  shapes.sort((a, b) => b.depth - a.depth);
+  shapes.sort((a, b) => a.location.transform(cameraTransform).z - b.location.transform(cameraTransform).z);
   for (const shape of shapes) {
-    const pointTransform = shape.rotation.multiply(shape.positionAndScale);
-    const facets = shape.facets;
+    const pointTransform = shape.rotation.multiply(shape.positionAndScale).multiply(cameraTransform);
+    // should use fov angle for compare, but this works
+    const outOfView = shape.location.transform(cameraTransform)
+      .transform(SquareMatrix.translate(-1, 0, 0)).normalize()
+      .dot(new Vec3(0, 0, -1)) < 0.5;
+    if (outOfView) {
+      continue;
+    }
     const frameFacets = [];
-    for (const facet of facets) {
+    for (const facet of shape.facets) {
       const currentFacet = [];
       // convert to world space
       for (const point of facet) {
@@ -80,7 +94,7 @@ function render() {
         frameFacets.push(currentFacet);
       } else {
         // draw if surface normal points toward the camera or object is transparent
-        const normal = facet.normal.transform(shape.rotation);
+        const normal = facet.normal.transform(shape.rotation.multiply(camera.rotation));
         let pointOnPlane = currentFacet[2];
         if (normal.dot(pointOnPlane) < 0) {
           currentFacet.facing = true;
@@ -89,9 +103,10 @@ function render() {
           frameFacets.push(currentFacet);
         }
         if (currentFacet.color instanceof Vec3) {
+          const origin = light.origin.transform(cameraTransform);
           const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
-          const attenuation = light.origin.sub(fCenter).magnitude * 0.05;
-          let lighting = normal.normalize().dot(light.origin.sub(fCenter).normalize());
+          const attenuation = origin.sub(fCenter).magnitude * 0.05;
+          let lighting = normal.normalize().dot(origin.sub(fCenter).normalize());
           lighting *= 1 - light.ambient;
           lighting += light.ambient;
           lighting /= attenuation;
@@ -162,6 +177,7 @@ function render() {
       }
     }
   }
+  updateCameraLocation();
 }
 
 function initializeLighting() {
@@ -198,36 +214,28 @@ function initializePointerEvents() {
     const {
       top: canvasTop,
       left: canvasLeft,
-      width: canvasWidth,
-      height: canvasHeight,
     } = canvas.getBoundingClientRect();
     const clickCoords = new Vec3(
-      (event.clientX - (canvasLeft + canvasWidth / 2)) / canvasWidth * worldW,
-      ((canvasTop + canvasHeight / 2) - event.clientY) / canvasHeight * worldH,
+      event.clientX - canvasLeft,
+      event.clientY - canvasTop,
       0);
     prevX = event.pageX;
     prevY = event.pageY;
     /**@type{Geometry}*/let hitObj;
+    const transform = camera.positionAndScale.multiply(camera.rotation);
     for (const shape of shapes) {
-      const worldCoords = clickCoords.scale(shape.depth);
-      worldCoords.z = -shape.depth;
-      // simple hitbox, for now at least. checking to see if vectors from opposite corners
-      // of a boundary box around the shape have some component along both the x and y axis
-      // toward the center. it works well enough, but eventually I'd like to figure out how
-      // to check for intersection with a triangle
-      const topLeft = worldCoords.sub(shape.topLeft);
-      const bottomRight = worldCoords.sub(shape.bottomRight);
-      const hit = topLeft.dot(new Vec3(1, 0, 0)) > 0 && topLeft.dot(new Vec3(0, -1, 0)) > 0
-        && bottomRight.dot(new Vec3(-1, 0, 0)) > 0 && bottomRight.dot(new Vec3(0, 1, 0)) > 0;
-      if (hit && (!hitObj || hitObj.depth > shape.depth)) {
+      const shapeLocation = shape.location.transform(transform);
+      const hitbox = shape.getHitBox(transform, worldW, worldH, rasterW, rasterH);
+      const hit = clickCoords.y > hitbox.top && clickCoords.y < hitbox.bottom
+        && clickCoords.x < hitbox.right && clickCoords.x > hitbox.left;
+      if (hit && (!hitObj || hitObj.depth < -shapeLocation.z)) {
         hitObj = shape;
       }
     }
-    if (hitObj) {
-      const moveShape = e => mouseMove(e, hitObj);
-      document.addEventListener('pointermove', moveShape);
-      document.addEventListener('pointerup', () => document.removeEventListener('pointermove', moveShape));
-    }
+    hitObj ||= camera;
+    const moveShape = e => mouseMove(e, hitObj);
+    document.addEventListener('pointermove', moveShape);
+    document.addEventListener('pointerup', () => document.removeEventListener('pointermove', moveShape));
   }
 
   function mouseMove(/**@type{PointerEvent}*/event, /**@type{Geometry}*/shape = null) {
@@ -242,6 +250,71 @@ function initializePointerEvents() {
     requestAnimationFrame(t => {
       // timestamp check probably not necessary
       if (t != prevT) {
+        render();
+      }
+      prevT = t;
+    });
+  }
+}
+
+function initializeKeyboardEvents() {
+  document.addEventListener('keydown', startMove);
+  document.addEventListener('keyup', stopMove);
+
+  function startMove(/**@type{KeyboardEvent}*/event) {
+    movement.sane();
+    switch (event.key) {
+      case 'w':
+        if (movement.z) {
+          return;
+        }
+        movement.z += 1;
+        break;
+      case 's':
+        if (movement.z) {
+          return;
+        }
+        movement.z -= 1;
+        break;
+      case 'a':
+        if (movement.x) {
+          return;
+        }
+        movement.x += 1;
+        break;
+      case 'd':
+        if (movement.x) {
+          return;
+        }
+        movement.x -= 1;
+        break;
+    }
+    movement = movement.normalize().scale(0.5);
+    updateCameraLocation();
+  }
+
+  function stopMove(/**@type{KeyboardEvent}*/event) {
+    switch (event.key) {
+      case 'w':
+      case 's':
+        movement.z = 0;
+        break;
+      case 'a':
+      case 'd':
+        movement.x = 0;
+        break;
+    }
+    movement = movement.scale(2).normalize().scale(0.5);
+    updateCameraLocation();
+  }
+}
+
+function updateCameraLocation() {
+  if (movement.magnitude) {
+    const translation = movement.transform(camera.rotation.invert());
+    camera.translate(translation.x, 0, translation.z);
+    requestAnimationFrame(t => {
+      if (t != prevT)  {
         render();
       }
       prevT = t;

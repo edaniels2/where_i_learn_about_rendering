@@ -3,14 +3,14 @@ import { Vec3 } from '../vector.js';
 
 export class Geometry {
   /**@type{SquareMatrix}*/#centerPointInv;
+  /**@type{SquareMatrix}*/#rotation;
   /**@type{SquareMatrix}*/positionAndScale;
-  /**@type{SquareMatrix}*/position;
-  /**@type{SquareMatrix}*/scale;
   /**@type{SquareMatrix}*/centerPointOffset;
-  /**@type{SquareMatrix}*/rotation;
-  /**@type{Vec3[][]}*/facets;
+  /**@type{Vec3[][]}*/facets = [];
   facetOutline = true;
   hitboxSize = 1;
+
+  #r = {x: 0, y: 0, z: 0};
 
   constructor(/**@type{Vec3}*/position, /**@type{object}*/options) {
     this.size = options?.size || 1;
@@ -20,11 +20,9 @@ export class Geometry {
     }
     // can these combined? i tried to but either i did something wrong or it just has to be kept separate.
     // again I probably need to learn more linear algebra.
-    this.position = SquareMatrix.translate(position.x, position.y, position.z);
-    this.scale = SquareMatrix.scale(this.size, this.size);
     this.positionAndScale = SquareMatrix.scale(this.size, this.size, this.size)
       .multiply(SquareMatrix.translate(position.x, position.y, position.z));
-    this.rotation = new SquareMatrix;
+    this.#rotation = new SquareMatrix;
     this.define();
     if (this.centerPointOffset) {
       for (let i = 0; i < this.facets.length; i++) {
@@ -85,19 +83,60 @@ export class Geometry {
   }
 
   rotateX(/**@type{number}*/radians) {
-    this.rotation = this.rotation.multiply(SquareMatrix.rotationX(radians));
+    this.#rotation = this.rotation.multiply(SquareMatrix.rotationX(radians));
   }
 
   rotateY(/**@type{number}*/radians) {
-    this.rotation = this.rotation.multiply(SquareMatrix.rotationY(radians));
+    this.#rotation = this.rotation.multiply(SquareMatrix.rotationY(radians));
   }
 
   rotateZ(/**@type{number}*/radians) {
-    this.rotation = this.rotation.multiply(SquareMatrix.rotationZ(radians));
+    this.#rotation = this.rotation.multiply(SquareMatrix.rotationZ(radians));
+  }
+
+  translate(x, y, z) {
+    this.positionAndScale = this.positionAndScale.multiply(SquareMatrix.translate(x, y, z));
+  }
+
+  get location() {
+    const [x, y, z] = this.positionAndScale[3];
+    return new Vec3(x, y, z);
+  }
+
+  get rotation() {
+    return this.#rotation
+  }
+
+  getHitBox(
+    /**@type{SquareMatrix}*/cameraTransform,
+    /**@type{}number*/worldW,
+    /**@type{}number*/worldH,
+    /**@type{}number*/rasterW,
+    /**@type{}number*/rasterH
+  ) {
+    const transform = this.rotation.multiply(this.positionAndScale).multiply(cameraTransform);
+    let right = -Infinity;
+    let top = -Infinity;
+    let left = Infinity;
+    let bottom = Infinity;
+    for (let i = 0; i < this.facets.length; i++) {
+      for (let j = 0; j < this.facets[i].length; j++) {
+        const point = this.facets[i][j].transform(transform);
+        right = Math.max(right, point.x);
+        left = Math.min(left, point.x);
+        top = Math.max(top, point.y);
+        bottom = Math.min(bottom, point.y);
+      }
+    }
+    left = (left / this.depth + worldW / 2) / worldW * rasterW;
+    right = (right / this.depth + worldW / 2) / worldW * rasterW;
+    top = (1 - (top / this.depth + worldH / 2) / worldH) * rasterH;
+    bottom = (1 - (bottom / this.depth + worldH / 2) / worldH) * rasterH;
+    return { top, bottom, left, right };
   }
 
   get depth() {
-    return this.positionAndScale[3][2] * -1; // maybe don't invert?
+    return this.positionAndScale[3][2] * -1;
   }
 
   get topLeft() {
@@ -121,57 +160,5 @@ export class Geometry {
       this.#centerPointInv = this.centerPointOffset.invert();
     }
     return this.#centerPointInv;
-  }
-}
-
-// try a distinction between 3- and 4-vertex surfaces
-
-export class Cube extends Geometry {
-  define() {
-    const left = -0.5;
-    const back = -0.5;
-    const bottom = -0.5;
-    const right = 0.5;
-    const top = 0.5;
-    const front = 0.5;
-    this.facets = [
-      // back
-      [new Vec3(left, top, back), new Vec3(left, bottom, back), new Vec3(right, bottom, back), new Vec3(right, top, back)],
-      // bottom
-      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, bottom, back)],
-      // right
-      [new Vec3(right, top, front), new Vec3(right, top, back), new Vec3(right, bottom, back), new Vec3(right, bottom, front)],
-      // left
-      [new Vec3(left, top, front), new Vec3(left, top, back), new Vec3(left, bottom, back), new Vec3(left, bottom, front)],
-      // top
-      [new Vec3(right, top, front), new Vec3(left, top, front), new Vec3(left, top, back), new Vec3(right, top, back)],
-      // front
-      [new Vec3(left, top, front), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, top, front)],
-    ];
-    this.randomColors();
-  }
-}
-
-export class Pyramid extends Geometry {
-  define() {
-    const left = -0.5;
-    const back = -0.5;
-    const bottom = -0.5;
-    const right = 0.5;
-    const top = 0.5;
-    const front = 0.5;
-    this.facets = [
-      //base
-      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, bottom, back)],
-      //front
-      [new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(0, top, 0)],
-      //back
-      [new Vec3(left, bottom, back), new Vec3(right, bottom, back), new Vec3(0, top, 0)],
-      //left
-      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(0, top, 0)],
-      //right
-      [new Vec3(right, bottom, back), new Vec3(right, bottom, front), new Vec3(0, top, 0)],
-    ];
-    this.randomColors();
   }
 }
