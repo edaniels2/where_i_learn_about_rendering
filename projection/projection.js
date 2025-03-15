@@ -9,14 +9,14 @@ const projectionMatrix  = new SquareMatrix();
 // move constants to a config file
 
 const light = {
-  origin: new Vec3(2, 2, 0),
-  ambient: 0.4,
+  origin: new Vec3(-10, 2, -2),
+  ambient: 0.25,
 };
 const shapes = [
-  new Dinosaur(new Vec3(-4, -2, -15), {size: .3, opacity: 0.6, strokeStyle: '#444'}),
+  new Dinosaur(new Vec3(-4, -2, -15), {size: .3, opacity: 0.5, rotateY: -0.1, strokeStyle: '#444'}),
   new Pyramid(new Vec3(-3, 0.5, -16), {size: 4, opacity: 0.9}),
   new Cube(new Vec3(10, 5, -35), {size: 10}),
-  new Cube(new Vec3(1, -1, -10), {size: 3, opacity: 0.7, rotateX: 0.707, rotateY: -0.3, rotateZ: 0.1}),
+  new Cube(new Vec3(1, -1, -10), {size: 3, opacity: 0.7, rotateX: 0.707, rotateY: -0.3, rotateZ: 0.1, strokeStyle: 'black'}),
   new Teapot(new Vec3(-3, 4, -18), {rotateX: 0.3})
 ];
 
@@ -76,10 +76,10 @@ function render() {
       }
       currentFacet.color = facet.color;
 
-      if (shape.pointCloud || shape.flat) {
+      if (shape.pointCloud) {
         frameFacets.push(currentFacet);
       } else {
-        // only draw if surface normal points toward the camera
+        // draw if surface normal points toward the camera or object is transparent
         const normal = facet.normal.transform(shape.rotation);
         let pointOnPlane = currentFacet[2];
         if (normal.dot(pointOnPlane) < 0) {
@@ -90,9 +90,11 @@ function render() {
         }
         if (currentFacet.color instanceof Vec3) {
           const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
-          const attenuation = light.origin.sub(fCenter).magnitude * 0.1;
-          let lighting = normal.normalize().dot(light.origin.sub(fCenter).normalize()) / attenuation;
-          lighting = clamp(lighting, 0, 1 - light.ambient) + light.ambient;
+          const attenuation = light.origin.sub(fCenter).magnitude * 0.05;
+          let lighting = normal.normalize().dot(light.origin.sub(fCenter).normalize());
+          lighting *= 1 - light.ambient;
+          lighting += light.ambient;
+          lighting /= attenuation;
           currentFacet.color = currentFacet.color.scale(lighting);
         }
       }
@@ -152,7 +154,7 @@ function render() {
       ctx.fillStyle = colorString;
       ctx.strokeStyle = shape.strokeStyle || colorString;
       if (!shape.pointCloud) {
-        if (!shape.opacity) {
+        if (shape.facetOutline || !shape.opacity) {
           ctx.closePath();
           ctx.stroke();
         }
@@ -160,16 +162,6 @@ function render() {
       }
     }
   }
-}
-
-function clamp(/**@type{number}*/value, /**@type{number}*/min, /**@type{number}*/max) {
-  if (value <= min) {
-    return min;
-  }
-  if (value >= max) {
-    return max;
-  }
-  return value;
 }
 
 function initializeLighting() {
