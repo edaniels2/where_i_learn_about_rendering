@@ -3501,6 +3501,13 @@ export class Teapot extends Geometry {
       [new Vec3(0.000000, 2.533333, -0.222222), new Vec3(0.031111, 2.533333, -0.222222), new Vec3(0.000000, 2.503704, -0.283951)],
       [new Vec3(0.031111, 2.533333, -0.222222), new Vec3(0.000000, 2.533333, -0.222222), new Vec3(0.056000, 2.550000, -0.200000)],
       [new Vec3(0.000000, 2.550000, -0.200000), new Vec3(0.056000, 2.550000, -0.200000), new Vec3(0.000000, 2.533333, -0.222222)],
+
+      [ // close up the bottom; not part of original data
+        new Vec3(1.515, 0, 0), new Vec3(1.312, 0, -0.7575), new Vec3(1.0713, 0, -1.0713), new Vec3(0.7575, 0, -1.312),
+        new Vec3(0, 0, -1.515), new Vec3(-0.7575, 0, -1.312), new Vec3(-1.0713, 0, -1.0713), new Vec3(-1.312, 0, -0.7575),
+        new Vec3(-1.515, 0, 0), new Vec3(-1.312, 0, 0.7575), new Vec3(-1.0713, 0, 1.0713), new Vec3(-0.7575, 0, 1.312),
+        new Vec3(0, 0, 1.515), new Vec3(0.7575, 0, 1.312), new Vec3(1.0713, 0, 1.0713), new Vec3(1.312, 0, 0.7575),
+      ],
     ];
 
     this.normals = [new Vec3(-0.000000, 0.429934, 0.902861).add(
@@ -17454,10 +17461,11 @@ export class Teapot extends Geometry {
       new Vec3(-0.000000, 0.800000, -0.600000).add(
       new Vec3(0.078631, 0.800134, -0.594644)).add(
       new Vec3(-0.000000, 0.873262, -0.487251)).normalize(),
-      
+
+      new Vec3(0, -1, 0),
     ];
 
-    this.facets.forEach(f => f.color = new Vec3(0.6, 0.7, 0.7));
+    this.facets.forEach(f => f.color = new Vec3(0.75, 0.8, 0.8));
   }
 
 }

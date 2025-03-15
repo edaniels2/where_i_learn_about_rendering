@@ -136,25 +136,19 @@ export class Cube extends Geometry {
     const front = 0.5;
     this.facets = [
       // back
-      [new Vec3(left, top, back), new Vec3(left, bottom, back), new Vec3(right, bottom, back)],
-      [new Vec3(left, top, back), new Vec3(right, top, back), new Vec3(right, bottom, back)],
+      [new Vec3(left, top, back), new Vec3(left, bottom, back), new Vec3(right, bottom, back), new Vec3(right, top, back)],
       // bottom
-      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front)],
-      [new Vec3(left, bottom, back), new Vec3(right, bottom, back), new Vec3(right, bottom, front)],
+      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, bottom, back)],
       // right
-      [new Vec3(right, top, front), new Vec3(right, top, back), new Vec3(right, bottom, back)],
-      [new Vec3(right, top, front), new Vec3(right, bottom, front), new Vec3(right, bottom, back)],
+      [new Vec3(right, top, front), new Vec3(right, top, back), new Vec3(right, bottom, back), new Vec3(right, bottom, front)],
       // left
-      [new Vec3(left, top, front), new Vec3(left, top, back), new Vec3(left, bottom, back)],
-      [new Vec3(left, top, front), new Vec3(left, bottom, front), new Vec3(left, bottom, back)],
+      [new Vec3(left, top, front), new Vec3(left, top, back), new Vec3(left, bottom, back), new Vec3(left, bottom, front)],
       // top
-      [new Vec3(right, top, front), new Vec3(left, top, front), new Vec3(left, top, back)],
-      [new Vec3(left, top, back), new Vec3(right, top, back), new Vec3(right, top, front)],
+      [new Vec3(right, top, front), new Vec3(left, top, front), new Vec3(left, top, back), new Vec3(right, top, back)],
       // front
-      [new Vec3(left, top, front), new Vec3(left, bottom, front), new Vec3(right, bottom, front)],
-      [new Vec3(left, top, front), new Vec3(right, top, front), new Vec3(right, bottom, front)],
+      [new Vec3(left, top, front), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, top, front)],
     ];
-    this.randomColors(2);
+    this.randomColors();
   }
 }
 
@@ -168,8 +162,7 @@ export class Pyramid extends Geometry {
     const front = 0.5;
     this.facets = [
       //base
-      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front)],
-      [new Vec3(left, bottom, back), new Vec3(right, bottom, back), new Vec3(right, bottom, front)],
+      [new Vec3(left, bottom, back), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, bottom, back)],
       //front
       [new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(0, top, 0)],
       //back
@@ -180,7 +173,5 @@ export class Pyramid extends Geometry {
       [new Vec3(right, bottom, back), new Vec3(right, bottom, front), new Vec3(0, top, 0)],
     ];
     this.randomColors();
-    // base is 2 triangles, everything else is 1
-    this.facets[1].color = this.facets[0].color;
   }
 }

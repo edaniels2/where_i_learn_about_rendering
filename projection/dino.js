@@ -624,8 +624,12 @@ export class Dinosaur extends Geometry {
       ]
     ];
     this.facets.forEach(facet => facet.color = new Vec3(0.1, 1.0, 0.2));
+    this.facets[0].color = 'pink';
+    this.facets[1].color = 'pink';
     this.facets.at(-1).color = new Vec3(1.0, 0.2, 0.2);
     this.facets.at(-2).color = new Vec3(1.0, 0.2, 0.2);
+
+    // TODO: precalculate normals and get rid of the following
     this.facets[1].invertNorm = true;
     this.facets[2].invertNorm = true;
     this.facets[6].invertNorm = true;
@@ -646,12 +650,13 @@ export class Dinosaur extends Geometry {
     this.facets[48].invertNorm = true;
     this.facets[52].invertNorm = true;
     this.facets[62].invertNorm = true;
+    this.facets[57].invertNorm = true;
+    this.facets[58].invertNorm = true;
+    this.facets[59].invertNorm = true;
     this.facets[67].invertNorm = true;
     this.facets[68].invertNorm = true;
     this.facets[69].invertNorm = true;
     this.facets[70].invertNorm = true;
-    this.facets[0].color = 'pink';
-    this.facets[1].color = 'pink';
   }
 
 }
