@@ -1,9 +1,14 @@
 import { Geometry } from './geometry.js';
 import { SquareMatrix } from '../matrix.js';
+import { Vec3 } from '../vector.js';
 
 export class Camera extends Geometry {
   #r = {x: 0, y: 0, z: 0};
   /**@type{SquareMatrix}*/#rotation;
+
+  constructor(position) {
+    super(position || new Vec3(0, -0.35, 0));
+  }
 
   rotateX(/**@type{number}*/radians) {
     this.#r.x += radians;

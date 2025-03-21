@@ -23,7 +23,11 @@ export class Cube extends Geometry {
       // front
       [new Vec3(left, top, front), new Vec3(left, bottom, front), new Vec3(right, bottom, front), new Vec3(right, top, front)],
     ];
-    this.randomColors();
+    if (this.color) {
+      this.facets.forEach(f => f.color = this.color);
+    } else {
+      this.randomColors();
+    }
   }
 }
 

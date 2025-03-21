@@ -6,31 +6,48 @@ import { SquareMatrix } from '../matrix.js';
 import { Teapot } from './teapot.js';
 import { Vec3 } from '../vector.js';
 
-
 // pretty happy with everything except detecting click on shapes, it barely works
+// TODO: how to display polygons when some vertices cross the z=0 plane?
 
-const projectionMatrix  = new SquareMatrix();
+// WIP; supposedly a perspective projection matrix
+// const projectionMatrix  = new SquareMatrix();
+// const n = 0.5;
+// const f = 10;
+// const fov = 90;
+// const s = 1 / Math.tan((fov / 2) * (Math.PI / 180));
+// const sz = -f / (f - n);
+// const tz = -(f * n) / (f - n);
+// projectionMatrix.set([
+//   [s, 0, 0, 0],
+//   [0, s, 0, 0],
+//   [0, 0, sz, -1],
+//   [0, 0, tz, 0],
+// ]);
+
 // move constants to a config file
-const camera = new Camera(new Vec3); // subclass Geometry for the camera
+const camera = new Camera();
 
 const light = {
-  origin: new Vec3(-10, 2, -2),
+  origin: new Vec3(-10, 16, -2),
   ambient: 0.25,
 };
+const table = new Cube(new Vec3(0, -0.75, -5), {size: 0.5, color: new Vec3(0.9, 0.8, 0.8)});
 const shapes = [
-  new Dinosaur(new Vec3(-4, -2, -15), {size: .3, opacity: 0.5, rotateY: -0.1, strokeStyle: '#444'}),
-  new Pyramid(new Vec3(-3, 0.5, -16), {size: 4, opacity: 0.9}),
-  new Cube(new Vec3(10, 5, -35), {size: 10}),
-  new Cube(new Vec3(1, -1, -10), {size: 3, opacity: 0.7, rotateX: 0.707, rotateY: -0.3, rotateZ: 0.1, strokeStyle: 'black'}),
-  new Teapot(new Vec3(-3, 4, -18), {rotateX: 0.3})
+  table,
+  new Teapot(new Vec3(0, -0.5, -5), {size: 0.1, color: new Vec3(0.9, 0.95, 1), topOf: table}),
+  new Dinosaur(new Vec3(-1, -0.4, -5), {size: 0.08, opacity: 0.5, rotateY: -0.1, strokeStyle: '#444'}),
+  new Pyramid(new Vec3(-3, -0.5, -7), {opacity: 0.5}),
+  new Pyramid(new Vec3(2.5, -0.5, -3), {opacity: 0.5}),
+  new Cube(new Vec3(3, -0.5, -7), {opacity: 0.5}),
+  new Cube(new Vec3(-2.5, -0.5, -3), {opacity: 0.5}),
 ];
 
-let worldW = 1, worldH = 1;
+let /**@type{number}*/worldW, /**@type{number}*/worldH;
 let prevT = 0, prevX = 0, prevY = 0;
 let /**@type{number}*/halfWorldW, /**@type{number}*/halfWorldH;
 let /**@type{number}*/rasterW, /**@type{number}*/rasterH;
 let /**@type{HTMLCanvasElement}*/canvas, /**@type{CanvasRenderingContext2D}*/ctx;
-let movement = new Vec3;
+let movement = new Vec3, prevMovementTime = 0;
 
 export function main() {
   canvas = document.querySelector('canvas');
@@ -41,25 +58,13 @@ export function main() {
   const aspect = width / height;
   if (width > height) {
     worldW = aspect;
+    worldH = worldW / aspect;
   } else if (height > width) {
     worldH = 1 / aspect;
+    worldW = worldH * aspect;
   }
   halfWorldW = worldW / 2;
   halfWorldH = worldH / 2;
-
-  // WIP; supposedly a perspective projection matrix
-  // const n = 0.5;
-  // const f = 100;
-  // const fov = 60;
-  // const s = 1 / Math.tan((fov / 2) * (Math.PI / 180));
-  // const sz = -f / (f - n);
-  // const tz = -(f * n) / (f - n);
-  // projectionMatrix.set([
-  //   [s * aspect, 0, 0, 0],
-  //   [0, s, 0, 0],
-  //   [0, 0, sz, -1],
-  //   [0, 0, tz, 0],
-  // ]);
 
   initializeKeyboardEvents();
   initializePointerEvents();
@@ -71,13 +76,20 @@ export function main() {
 function render() {
   const cameraTransform = camera.positionAndScale.multiply(camera.rotation);
   ctx.clearRect(0, 0, rasterW, rasterH);
-  shapes.sort((a, b) => a.location.transform(cameraTransform).z - b.location.transform(cameraTransform).z);
+  shapes.sort((a, b) => {
+    if (a.topOf === b) {
+      return 1;
+    }
+    if (b.topOf === a) {
+      return -1;
+    }
+    return a.location.transform(cameraTransform).z - b.location.transform(cameraTransform).z;
+  });
   for (const shape of shapes) {
     const pointTransform = shape.rotation.multiply(shape.positionAndScale).multiply(cameraTransform);
     // should use fov angle for compare, but this works
     const outOfView = shape.location.transform(cameraTransform)
-      .transform(SquareMatrix.translate(-1, 0, 0)).normalize()
-      .dot(new Vec3(0, 0, -1)) < 0.5;
+      .normalize().dot(new Vec3(0, 0, -1)) < 0.5;
     if (outOfView) {
       continue;
     }
@@ -88,7 +100,7 @@ function render() {
       for (const point of facet) {
         currentFacet.push(point.transform(pointTransform));
       }
-      currentFacet.color = facet.color;
+      currentFacet.color = facet.color || shape.color;
 
       if (shape.pointCloud) {
         frameFacets.push(currentFacet);
@@ -101,16 +113,16 @@ function render() {
         }
         if (currentFacet.facing || shape.opacity != 1) {
           frameFacets.push(currentFacet);
-        }
-        if (currentFacet.color instanceof Vec3) {
-          const origin = light.origin.transform(cameraTransform);
-          const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
-          const attenuation = origin.sub(fCenter).magnitude * 0.05;
-          let lighting = normal.normalize().dot(origin.sub(fCenter).normalize());
-          lighting *= 1 - light.ambient;
-          lighting += light.ambient;
-          lighting /= attenuation;
-          currentFacet.color = currentFacet.color.scale(lighting);
+          if (currentFacet.color instanceof Vec3) {
+            const origin = light.origin.transform(cameraTransform);
+            const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
+            const attenuation = origin.sub(fCenter).magnitude * 0.05;
+            let lighting = normal.normalize().dot(origin.sub(fCenter).normalize());
+            lighting /= attenuation;
+            lighting *= 1 - light.ambient;
+            lighting += light.ambient;
+            currentFacet.color = currentFacet.color.scale(lighting);
+          }
         }
       }
     }
@@ -148,8 +160,11 @@ function render() {
         // this is the conversion from world coordinates in 3d space
         // to display coordinates. Ideally figure out how to handle
         // with a matrix tranform (the perspective projection matrix)
-        const x = (pt.x / -pt.z + halfWorldW) / worldW * rasterW;
-        const y = (1 - (pt.y / -pt.z + halfWorldH) / worldH) * rasterH;
+        // const projected = pt.transform(projectionMatrix);
+        // const x = (projected.x + halfWorldW) / worldW * rasterW;
+        // const y = (1 - (projected.y + halfWorldH) / worldH) * rasterH;
+        const x = (pt.x / Math.abs(pt.z) + halfWorldW) / worldW * rasterW;
+        const y = (1 - (pt.y / Math.abs(pt.z) + halfWorldH) / worldH) * rasterH;
 
         if (shape.pointCloud) {
           const fillSize = 25 / -pt.z;
@@ -224,6 +239,9 @@ function initializePointerEvents() {
     /**@type{Geometry}*/let hitObj;
     const transform = camera.positionAndScale.multiply(camera.rotation);
     for (const shape of shapes) {
+      if (shape.fixed) {
+        continue;
+      }
       const shapeLocation = shape.location.transform(transform);
       const hitbox = shape.getHitBox(transform, worldW, worldH, rasterW, rasterH);
       const hit = clickCoords.y > hitbox.top && clickCoords.y < hitbox.bottom
@@ -289,7 +307,8 @@ function initializeKeyboardEvents() {
         movement.x -= 1;
         break;
     }
-    movement = movement.normalize().scale(0.5);
+    movement = movement.scale(2).normalize().scale(0.5);
+    prevMovementTime = performance.now() - 8;
     updateCameraLocation();
   }
 
@@ -311,10 +330,13 @@ function initializeKeyboardEvents() {
 
 function updateCameraLocation() {
   if (movement.magnitude) {
-    const translation = movement.transform(camera.rotation.invert());
+    const now = performance.now();
+    const scale = (now - prevMovementTime) / 128;
+    prevMovementTime = now;
+    const translation = movement.scale(scale).transform(camera.rotation.invert());
     camera.translate(translation.x, 0, translation.z);
     requestAnimationFrame(t => {
-      if (t != prevT)  {
+      if (t != prevT) {
         render();
       }
       prevT = t;

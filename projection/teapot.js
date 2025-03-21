@@ -1,4 +1,3 @@
-import { SquareMatrix } from '../matrix.js';
 import { Vec3 } from '../vector.js';
 import { Geometry } from './geometry.js'
 
@@ -11,7 +10,6 @@ export class Teapot extends Geometry {
   zSortFacets = true;
 
   define() {
-    this.centerPointOffset = SquareMatrix.translate(0, -1, 0);
     this.facets = [
       [new Vec3(0.000000, 2.250000, 1.500000), new Vec3(0.168000, 2.250000, 1.500000), new Vec3(0.000000, 2.282812, 1.484375)],
       [new Vec3(0.166250, 2.282812, 1.484375), new Vec3(0.000000, 2.282812, 1.484375), new Vec3(0.168000, 2.250000, 1.500000)],
@@ -17465,7 +17463,9 @@ export class Teapot extends Geometry {
       new Vec3(0, -1, 0),
     ];
 
-    this.facets.forEach(f => f.color = new Vec3(0.75, 0.8, 0.8));
+    if (!this.color) {
+      this.facets.forEach(f => f.color = new Vec3(0.75, 0.8, 0.8));
+    }
   }
 
 }

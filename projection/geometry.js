@@ -2,7 +2,6 @@ import { SquareMatrix } from '../matrix.js';
 import { Vec3 } from '../vector.js';
 
 export class Geometry {
-  /**@type{SquareMatrix}*/#centerPointInv;
   /**@type{SquareMatrix}*/#rotation;
   /**@type{SquareMatrix}*/positionAndScale;
   /**@type{SquareMatrix}*/centerPointOffset;
@@ -13,8 +12,12 @@ export class Geometry {
   #r = {x: 0, y: 0, z: 0};
 
   constructor(/**@type{Vec3}*/position, /**@type{object}*/options) {
+    this.color = options?.color;
+    this.fixed = options?.fixed;
     this.size = options?.size || 1;
     this.opacity = options?.opacity || 1;
+    this.centerPointOffset = options?.centerPointOffset;
+    this.topOf = options?.topOf;
     if (options?.strokeStyle) {
       this.strokeStyle = options.strokeStyle;
     }
@@ -94,7 +97,7 @@ export class Geometry {
     this.#rotation = this.rotation.multiply(SquareMatrix.rotationZ(radians));
   }
 
-  translate(x, y, z) {
+  translate(/**@type{number}*/x, /**@type{number}*/y, /**@type{number}*/z) {
     this.positionAndScale = this.positionAndScale.multiply(SquareMatrix.translate(x, y, z));
   }
 
@@ -137,28 +140,5 @@ export class Geometry {
 
   get depth() {
     return this.positionAndScale[3][2] * -1;
-  }
-
-  get topLeft() {
-    const offset = this.size * this.hitboxSize / 2;
-    return new Vec3(
-      this.positionAndScale[3][0] - offset,
-      this.positionAndScale[3][1] + offset,
-      this.depth);
-  }
-
-  get bottomRight() {
-    const offset = this.size * this.hitboxSize / 2;
-    return new Vec3(
-      this.positionAndScale[3][0] + offset,
-      this.positionAndScale[3][1] - offset,
-      this.depth);
-  }
-
-  get centerPointInv() {
-    if (this.centerPointOffset && !this.#centerPointInv) {
-      this.#centerPointInv = this.centerPointOffset.invert();
-    }
-    return this.#centerPointInv;
   }
 }
