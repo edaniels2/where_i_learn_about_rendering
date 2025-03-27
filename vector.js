@@ -1,4 +1,4 @@
-import { Matrix } from './matrix.js';
+import { SquareMatrix } from './matrix.js';
 
 export class Vec3 {
   /**@type{Vec3}*/#mag;
@@ -78,8 +78,27 @@ export class Vec3 {
   }
 
   transform(m) {
-    const coords = (new Matrix([this.x, this.y, this.z, 1])).multiply(m);
-    return new Vec3(coords[0][0], coords[0][1], coords[0][2]);
+    return this.matrixMultiply(m);
+  }
+
+  project(m) {
+    return this.matrixMultiply(m, false);
+  }
+
+  matrixMultiply(/** @type {SquareMatrix} */ m, affine = true) {
+    let x = this.x * m[0][0] + this.y * m[1][0] + this.z * m[2][0] + m[3][0];
+    let y = this.x * m[0][1] + this.y * m[1][1] + this.z * m[2][1] + m[3][1];
+    let z = this.x * m[0][2] + this.y * m[1][2] + this.z * m[2][2] + m[3][2];
+    if (!affine) {
+      const w = this.x * m[0][3] + this.y * m[1][3] + this.z * m[2][3] + m[3][3];
+      if (w != 1) {
+        const wInv = 1 / w;
+        x *= wInv;
+        y *= wInv;
+        z *= wInv;
+      }
+    }
+    return new Vec3(x, y, z);
   }
 
   sane() {

@@ -7,11 +7,16 @@
 </head>
 <body>
   <div>
-    <a href="./projection/">Perspective projection</a> - fast but simple
+    <a href="./projection/canvas_api/">Perspective projection using canvas api</a> - 60fps but basic. Its best trick is simple directional lighting
   </div>
 
   <div>
-    <a href="./raytracer/">Raytracer</a> - slow but pretty (shadows, reflections, and all that)
+    <a href="./projection/rasterizer/">Perspective projection using full rasterization algorithm</a> - fast enough for real time as long as
+    the scene isn't too complex and you're not fussy about frame rate. Implements smooth shading.
+  </div>
+
+  <div>
+    <a href="./raytracer/">Raytracer</a> - not real time but handles lighting effects really well
   </div>
 </body>
 </html>

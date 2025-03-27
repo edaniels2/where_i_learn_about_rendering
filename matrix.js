@@ -1,21 +1,4 @@
 export class Matrix extends Array {
-  multiply(/** @type {Array} */ m) {
-    if (this[0].length != m.length) {
-      throw new Error('Matrices incompatible for multiplication');
-    }
-    const result = [];
-    for (let i = 0; i < this.length; i++) {
-      result[i] = [];
-      for (let j = 0; j < m[0].length; j++) {
-        result[i][j] = 0;
-        for (let p = 0; p < this[0].length; p++) {
-          result[i][j] += this[i][p] * m[p][j];
-        }
-      }
-    }
-    return result;
-  }
-
   /**@returns{Matrix}*/
   transpose() {
     const result = [];

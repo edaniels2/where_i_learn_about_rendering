@@ -12,8 +12,13 @@ export class Geometry {
   #r = {x: 0, y: 0, z: 0};
 
   constructor(/**@type{Vec3}*/position, /**@type{object}*/options) {
+    this.options = options;
     this.color = options?.color;
+    this.contrast = options?.contrast || 1;
+    this.disableBackfaceCulling = options?.disableBackfaceCulling;
     this.fixed = options?.fixed;
+    this.wireframe = options?.wireframe;
+    this.zSortFacets = options?.zSortFacets;
     this.size = options?.size || 1;
     this.opacity = options?.opacity || 1;
     this.centerPointOffset = options?.centerPointOffset;
@@ -62,7 +67,15 @@ export class Geometry {
       throw new Error(`Number of normal vectors does not match number of polygons in model - ${this.constructor.name}`)
     }
     for (let i = 0; i < this.facets.length; i++) {
-      this.facets[i].normal = this.normals[i];
+      if (Array.isArray(this.normals[i])) {
+        for (let j = 0; j < this.facets[i].length; j++) {
+          this.facets[i][j].normal = this.normals[i][j];
+        }
+        const surfaceNorm = this.normals[i].reduce((sum, n) => sum.add(n.normalize()).normalize(), new Vec3).normalize();
+        this.facets[i].normal = surfaceNorm;
+      } else {
+        this.facets[i].normal = this.normals[i];
+      }
     }
   }
 
@@ -140,5 +153,51 @@ export class Geometry {
 
   get depth() {
     return this.positionAndScale[3][2] * -1;
+  }
+}
+
+
+export class Fixed extends Geometry {
+  rotateX(/**@type{number}*/radians) { }
+
+  rotateY(/**@type{number}*/radians) { }
+
+  rotateZ(/**@type{number}*/radians) { }
+
+  translate(/**@type{number}*/x, /**@type{number}*/y, /**@type{number}*/z) { }
+}
+
+export class Wall extends Fixed {
+  constructor(/**@type{{x?: number, z?: number, from: number, to: number, top: number, bottom: number, color: string | Vec3}}*/params) {
+    const { x, z, from, to, top, bottom, color } = params;
+    const yMid = (top + bottom) / 2;
+    const height = top - bottom;
+    const halfHeight = height / 2;
+    super(new Vec3((x != undefined) ? x : (to + from) / 2, yMid, (z != undefined) ? z : (to + from) / 2));
+
+    if (x) {
+      this.facets = [
+        // [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)],
+        [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)],
+        // [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)]
+      ];
+      this.normals = [
+        new Vec3(x < 0 ? 1 : -1, 0, 0),
+        // new Vec3(x < 0 ? -1 : 1, 0, 0),
+      ];
+    } else if (z) {
+      this.facets = [
+        [new Vec3(from, -halfHeight, z), new Vec3(to, -halfHeight, z), new Vec3(to, halfHeight, z), new Vec3(from, halfHeight, z)],
+        // [new Vec3(from, -halfHeight, z), new Vec3(to, -halfHeight, z), new Vec3(to, halfHeight, z), new Vec3(from, halfHeight, z)]
+      ];
+      // this.normals = [
+      //   new Vec3(0, 0, z < 0 ? 1 : -1),
+      //   new Vec3(0, 0, z < 0 ? -1 : 1),
+      // ];
+    }
+    this.randomColors();
+    this.mapNormals();
+    this.facets[0].invertNorm = true;
+    // this.facets.forEach(this.calculateNormal);
   }
 }

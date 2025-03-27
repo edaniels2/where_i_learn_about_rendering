@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script type="module">
+    import { ObjFile } from '../obj-file.js';
+    import { PinholeCamera } from './pinhole-camera.js';
+    import { SquareMatrix } from '../matrix.js';
+    import { Vec3 } from '../vector.js';
+
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    const pinholeCamera = new PinholeCamera();
+    new ObjFile('../models/boat.obj').parse().then(Boat => {
+      const model = new Boat(new Vec3, {color: new Vec3(0.5, 0.5, 0.5)});
+      const cameraToWorld = new SquareMatrix();
+      cameraToWorld.set([
+        [-0.95424, 0, 0.299041, 0],
+        [0.0861242, 0.95763, 0.274823, 0],
+        [-0.28637, 0.288002, -0.913809, 0],
+        [-3.734612, 7.610426, -14.152769, 1]
+      ]);
+      const worldToCamera = cameraToWorld.invert();
+      const imageData = pinholeCamera.render([model], worldToCamera);
+      ctx.putImageData(imageData, 0, 0);
+      // for (let i = 0; i < model.facets.length; i++) {
+      //   let visible = true;
+      //   const pts = [];
+      //   for (let p = 0; p < model.facets[i].length; p++) {
+      //     const pt = model.facets[i][p];
+      //     const pixel = pinholeCamera.worldToPixel(pt, worldToCamera);
+      //     visible &&= pixel.visible;
+      //     pts.push({x: pixel.x, y: pixel.y});
+      //   }
+      //   ctx.strokeStyle = visible ? 'black' : 'red';
+      //   ctx.beginPath();
+      //   ctx.moveTo(pts[0].x, pts[0].y);
+      //   for (let p of pts.slice(1)) {
+      //     ctx.lineTo(p.x, p.y);
+      //   }
+      //   ctx.lineTo(pts[0].x, pts[0].y);
+      //   ctx.stroke();
+      // }
+    });
+  </script>
+</head>
+<body onload="">
+  <canvas width="640" height="480"></canvas>
+</body>
+</html>
