@@ -19,6 +19,7 @@ export class Rasterizer {
     this.screen = screen;
     this.clipNear = this.screen.near;
     this.clipFar = this.screen.far;
+    this.ANTI_ALIASING = false;
 
     if (PROJECTION_MATRIX) {
       PERSPECTIVE_CORRECTION.z = false; // handled in the projection
@@ -55,8 +56,6 @@ export class Rasterizer {
       if (pt.z <= this.clipNear || pt.z >= this.clipFar) {
         clip = true;
         visible = false;
-      } else {
-        // visible = true;
       }
       rasterVts.push(pt);
       if (pt.y < top) {
@@ -95,11 +94,9 @@ export class Rasterizer {
       shad20 = vShading ? (vShading[2] - vShading[0]) : null;
     }
 
-    /**Barycentric coordinate test increment for anti-aliasing*/
-    const s = 1;
-    const w0Gen = this.getEdgeCalculations(rasterVts[1], rasterVts[2], {x: left, y: top}, s);
-    const w1Gen = this.getEdgeCalculations(rasterVts[2], rasterVts[0], {x: left, y: top}, s);
-    const w2Gen = this.getEdgeCalculations(rasterVts[0], rasterVts[1], {x: left, y: top}, s);
+    const w0Gen = this.getEdgeCalculations(rasterVts[1], rasterVts[2], {x: left, y: top});
+    const w1Gen = this.getEdgeCalculations(rasterVts[2], rasterVts[0], {x: left, y: top});
+    const w2Gen = this.getEdgeCalculations(rasterVts[0], rasterVts[1], {x: left, y: top});
     const area = this.edgeFn(rasterVts[0], rasterVts[1], rasterVts[2]);
     // const tileSize = 8; // wip
 
@@ -144,8 +141,8 @@ export class Rasterizer {
           continue;
         }
 
-        const w1 = w1Gen.current / area;
-        const w2 = w2Gen.current / area;
+        const w1 = w1Gen.current() / area;
+        const w2 = w2Gen.current() / area;
         const pt  = new Vec3(x, y, 1);
         let ptColor = color;
 
@@ -167,9 +164,21 @@ export class Rasterizer {
             }
             ptColor = color.scale(Math.min(shade, 1));
           }
-          this.imageData.data[imageDataStart + 0] = Math.floor(ptColor.x * 255);
-          this.imageData.data[imageDataStart + 1] = Math.floor(ptColor.y * 255);
-          this.imageData.data[imageDataStart + 2] = Math.floor(ptColor.z * 255);
+          let r, g, b;
+          if (this.ANTI_ALIASING) {
+            const weight = Math.max(w0Gen.weight(), w1Gen.weight(), w2Gen.weight());
+            const weight0 = 1 - weight;
+            r = this.imageData.data[imageDataStart + 0] * weight0 + Math.floor(ptColor.x * 255) * weight;
+            g = this.imageData.data[imageDataStart + 1] * weight0 + Math.floor(ptColor.y * 255) * weight;
+            b = this.imageData.data[imageDataStart + 2] * weight0 + Math.floor(ptColor.z * 255) * weight;
+          } else {
+            r = Math.floor(ptColor.x * 255);
+            g = Math.floor(ptColor.y * 255);
+            b = Math.floor(ptColor.z * 255);
+          }
+          this.imageData.data[imageDataStart + 0] = r;
+          this.imageData.data[imageDataStart + 1] = g;
+          this.imageData.data[imageDataStart + 2] = b;
           // is alpha useful in this context? Transparency would have to account for
           // a weighted sum of colors for each visible facet in this pixel
           this.imageData.data[imageDataStart + 3] = 255;
@@ -228,29 +237,72 @@ export class Rasterizer {
     return (pt.x - a.x) * (b.y - a.y) - (pt.y - a.y) * (b.x - a.x);
   }
 
-  getEdgeCalculations(/**@type{Vec3}*/a, /**@type{Vec3}*/b,
-    /**@type{{x: number, y: number}}*/pt, /**@type{number}*/s
-  ) {
+  getEdgeCalculations(/**@type{Vec3}*/a, /**@type{Vec3}*/b, /**@type{{x: number, y: number}}*/pt) {
+    let antialias = false;
+    let halfStepX, halfStepY;
+    const xStep = (b.y - a.y);
+    const yStep = (a.x - b.x);
+    if (this.ANTI_ALIASING) {
+      antialias = true;
+      halfStepX = xStep / 2;
+      halfStepY = yStep / 2;
+    }
     const initial = this.edgeFn(a, b, pt);
-    return {
-      initial,
+    const coordinateGenerator = {
       rowStart: initial,
-      current: initial,
-      xStep: (b.y - a.y) * s,
-      yStep: (a.x - b.x) * s,
+      topLeft: initial,
       inside() {
-        return this.current >= 0;
+        if (antialias) {
+          return (this.topLeft >= 0) || (this.topRight >= 0)
+            || (this.bottomLeft >= 0) || (this.bottomRight >= 0);
+        }
+        return this.topLeft >= 0;
       },
-      atOffset(x, y) {
-        return this.current + this.yStep * y + this.xStep * x;
+      weight() {
+        const tl = this.topLeft >= 0;
+        const tr = this.topRight >= 0;
+        const bl = this.bottomLeft >= 0;
+        const br = this.bottomRight >= 0;
+        return (tl + tr + bl + br) / 4;
       },
+      current() {
+        if (antialias) {
+          return (this.topLeft + this.topRight + this.bottomLeft + this.bottomRight) / 4;
+        }
+        return this.topLeft;
+      },
+      // atOffset(x, y) { // this would be used for tile testing whenever i figure out how
+      //   return this.topLeft + this.yStep * y + this.xStep * x;
+      // },
       nextX() {
-        this.current += this.xStep;
+        if (antialias) {
+          this.topLeft += xStep;
+          this.topRight += xStep;
+          this.bottomLeft += xStep;
+          this.bottomRight += xStep;
+        } else {
+          this.topLeft += xStep;
+        }
       },
       nextY() {
-        this.rowStart += this.yStep;
-        this.current = this.rowStart;
+        if (antialias) {
+          this.rowStart += yStep;
+          this.topLeft = this.rowStart;
+          this.topRight = this.topLeft + halfStepX;
+          this.bottomLeft = this.topLeft + halfStepY;
+          this.bottomRight = this.bottomLeft + halfStepX;
+        } else {
+          this.rowStart += yStep;
+          this.topLeft = this.rowStart;
+        }
       },
     };
+    if (antialias) {
+      const initialBottom = initial + halfStepY;
+      coordinateGenerator.topRight = initial + halfStepX;
+      coordinateGenerator.bottomLeft = initialBottom;
+      coordinateGenerator.bottomRight = initialBottom + halfStepX;
+    }
+    return coordinateGenerator;
   }
 }

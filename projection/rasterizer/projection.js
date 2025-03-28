@@ -341,12 +341,12 @@ function updateCameraLocation() {
 }
 
 function initializeSettings() {
-  // const near = document.getElementById('near');
-  // near.value = screen.near;
-  // near.addEventListener('change', e => {
-  //   screen.near = Number(e.target.value);
-  //   render();
-  // });
+  const aa = document.getElementById('antialias');
+  aa.checked = rasterizer.ANTI_ALIASING;
+  aa.addEventListener('change', e => {
+    rasterizer.ANTI_ALIASING = e.target.checked;
+    render();
+  });
 
   const lightingInputs = {
     x: document.getElementById('lightX'),
