@@ -13,7 +13,7 @@ export class Geometry {
 
   constructor(/**@type{Vec3}*/position, /**@type{object}*/options) {
     this.options = options;
-    this.color = options?.color;
+    this.color = options?.color || new Vec3(0.5, 0.5, 0.5);
     this.contrast = options?.contrast || 1;
     this.disableBackfaceCulling = options?.disableBackfaceCulling;
     this.fixed = options?.fixed;
@@ -167,37 +167,19 @@ export class Fixed extends Geometry {
   translate(/**@type{number}*/x, /**@type{number}*/y, /**@type{number}*/z) { }
 }
 
-export class Wall extends Fixed {
-  constructor(/**@type{{x?: number, z?: number, from: number, to: number, top: number, bottom: number, color: string | Vec3}}*/params) {
-    const { x, z, from, to, top, bottom, color } = params;
-    const yMid = (top + bottom) / 2;
-    const height = top - bottom;
-    const halfHeight = height / 2;
-    super(new Vec3((x != undefined) ? x : (to + from) / 2, yMid, (z != undefined) ? z : (to + from) / 2));
+export class Plane {
+  constructor(/**@type{Vec3}*/normal, /**@type{number}*/d) {
+    this.normal = normal;
+    this.d = d;
+  }
 
-    if (x) {
-      this.facets = [
-        // [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)],
-        [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)],
-        // [new Vec3(x, -halfHeight, from), new Vec3(x, -halfHeight, to), new Vec3(x, halfHeight, to), new Vec3(x, halfHeight, from)]
-      ];
-      this.normals = [
-        new Vec3(x < 0 ? 1 : -1, 0, 0),
-        // new Vec3(x < 0 ? -1 : 1, 0, 0),
-      ];
-    } else if (z) {
-      this.facets = [
-        [new Vec3(from, -halfHeight, z), new Vec3(to, -halfHeight, z), new Vec3(to, halfHeight, z), new Vec3(from, halfHeight, z)],
-        // [new Vec3(from, -halfHeight, z), new Vec3(to, -halfHeight, z), new Vec3(to, halfHeight, z), new Vec3(from, halfHeight, z)]
-      ];
-      // this.normals = [
-      //   new Vec3(0, 0, z < 0 ? 1 : -1),
-      //   new Vec3(0, 0, z < 0 ? -1 : 1),
-      // ];
-    }
-    this.randomColors();
-    this.mapNormals();
-    this.facets[0].invertNorm = true;
-    // this.facets.forEach(this.calculateNormal);
+  distance(/**@type{Vec3}*/point) {
+    return point.dot(this.normal) + this.d;
+  }
+
+  intersection(/**@type{Vec3}*/a, /**@type{Vec3}*/b) {
+    const ab = b.sub(a);
+    const t = (this.normal.dot(a) - this.d) / this.normal.dot(ab); // maybe? i ran out of math a long time ago
+    return a.add(ab.scale(t));
   }
 }

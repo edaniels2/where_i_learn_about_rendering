@@ -31,7 +31,7 @@ export class Cube extends Geometry {
   }
 }
 
-export class HorizontalPlane extends Fixed {
+export class Floor extends Fixed {
   define() {
     const left = -0.5;
     const right = 0.5;

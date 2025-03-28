@@ -1,6 +1,6 @@
 import { Camera } from '../camera.js';
-import { HorizontalPlane } from '../shapes.js';
-import { Geometry } from '../geometry.js';
+import { Floor } from '../shapes.js';
+import { Geometry, Plane } from '../geometry.js';
 import { Vec3 } from '../../vector.js';
 import { ObjFile } from '../../obj-file.js';
 import { Rasterizer } from './rasterizer.js';
@@ -15,7 +15,7 @@ const light = {
   ambient: 0.25,
 };
 const shapes = [
-  new HorizontalPlane(new Vec3(0, -1, -12), {size: 10, color: new Vec3(0.65, 0.72, 0.67)}),
+  new Floor(new Vec3(0, -1, -12), {size: 15, color: new Vec3(0.65, 0.72, 0.67)}),
 ];
 
 let /**@type{number}*/worldW, /**@type{number}*/worldH;
@@ -28,6 +28,9 @@ let movement = new Vec3, prevMovementTime = 0;
 /** @type{Rasterizer} */
 let rasterizer;
 let screen;
+/**@type{Plane}*/
+let clippingPlane;
+let clippedZ;
 
 export function main() {
   canvas = document.querySelector('canvas');
@@ -42,13 +45,13 @@ export function main() {
   halfWorldW = worldW / 2;
   halfWorldH = worldH / 2;
 
-  const asyncShapes = [
+  const externalModels = [
     new ObjFile('/models/lamp.obj').parse().then(Model => {
-      const model = new Model(new Vec3(2, 0, -12), {size: 0.3, color: new Vec3(1.2, 1.2, 1.2), fixed: true, disableBackfaceCulling: true, contrast: 2.7});
+      const model = new Model(new Vec3(2, 0, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7});
       shapes.push(model);
     }),
     new ObjFile('/models/power_lines.obj').parse().then(Model => {
-      const model = new Model(new Vec3(4, 4.9, -14), {size: 0.1, color: new Vec3(0.3, 0.3, 0.3), fixed: true, disableBackfaceCulling: true});
+      const model = new Model(new Vec3(4, 4.9, -14), {size: 0.1, disableBackfaceCulling: true});
       shapes.push(model);
     }),
     new ObjFile('/models/cessna.obj').parse().then(Model => {
@@ -57,6 +60,14 @@ export function main() {
     }),
     new ObjFile('/models/minicooper_no_windows.obj').parse().then(Model => {
       const model = new Model(new Vec3(0, -1, -10), {size: 0.03, color: new Vec3(0.4, 0.53, 0.7), rotateX: -Math.PI / 2, rotateY: 0.3});
+      shapes.push(model);
+    }),
+    new ObjFile('/models/car.obj').parse().then(Model => {
+      const model = new Model(new Vec3(-3, -1, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2});
+      shapes.push(model);
+    }),
+    new ObjFile('/models/al.obj').parse().then(Model => {
+      const model = new Model(new Vec3(-4, -0.02, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true});
       shapes.push(model);
     }),
   ];
@@ -70,12 +81,14 @@ export function main() {
     far: 1000,
   };
   rasterizer = new Rasterizer(rasterW, rasterH, screen);
+  clippingPlane = new Plane(new Vec3(0, 0, 1), -screen.near);
+  clippedZ = clippingPlane.d - 5e-5;
 
   initializeKeyboardEvents();
   initializePointerEvents();
   initializeSettings();
 
-  Promise.all(asyncShapes).then(() => requestAnimationFrame(render));
+  Promise.all(externalModels).then(() => requestAnimationFrame(render));
 }
 
 function render() {
@@ -85,37 +98,86 @@ function render() {
   for (const shape of shapes) {
     const pointTransform = shape.rotation.multiply(shape.positionAndScale).multiply(cameraTransform);
     const rotationTransform = shape.rotation.multiply(camera.rotation);
-    // should probably use a more rigorous compare, but this works well enough to quickly
-    // cull some objects which would otherwise eat up a lot of processing time
-    const outOfView = shape.location.transform(cameraTransform)
-      .normalize().dot(new Vec3(0, 0, -1)) < 0.42;
-    if (outOfView) {
-      continue;
-    }
+    const shapeLocation = shape.location.transform(cameraTransform);
     for (const facet of shape.facets) {
-      let vShading = [];
+      /**@type{Vec3}*/let sNormal;
       const currentFacet = [];
-      // convert to world space
-      for (const point of facet) {
+      const clipPts = [];
+      let vShading = [];
+      // convert to world space & clip surfaces behind the camera
+      // TODO clip the whole viewing frustrum, should improve performance
+      for (let i = 0; i < facet.length; i ++) {
+        const point = facet[i];
         const pt = point.transform(pointTransform);
         pt.normal = point.normal?.transform(rotationTransform);
         currentFacet.push(pt);
+        if (pt.z >= screen.near) {
+          pt.index = i;
+          clipPts.push(pt);
+        }
+      }
+      if (!shape.disableBackfaceCulling) {
+        sNormal = facet.normal.transform(rotationTransform);
+        // back face culling removes things that should be visible on a couple
+        // of the models, maybe they're left handed or something.
+        let pointOnPlane = currentFacet[2];
+        if (sNormal.dot(pointOnPlane) > 0) {
+          continue;
+        }
+      }
+      if (clipPts.length == currentFacet.length) {
+        // all vertices are clipped so there's nothing to render
+        continue;
+      } else if (clipPts.length) {
+        let a, b;
+        const firstClipped = clipPts[0];
+        const firstPrev = facet.at(firstClipped.index - 1);
+        const firstNext = facet.at((firstClipped.index + 1) % facet.length);
+        const lastClipped = clipPts.at(-1);
+        const lastPrev = facet.at(lastClipped.index - 1);
+        const lastNext = facet.at((lastClipped.index + 1) % facet.length);
+        if (firstPrev.z < screen.near) {
+          a = firstPrev;
+        } else if (firstNext.z < screen.near) {
+          a = firstNext;
+        } else {
+          // this probably shouldn't happen but if it does we have to
+          // abandon clipping, maybe continue instead of break
+          break;
+        }
+        if (lastNext.z < screen.near) {
+          b = lastNext;
+        } else if (lastPrev.z < screen.near) {
+          b = lastPrev;
+        } else {
+          // this probably shouldn't happen but if it does we have to
+          // abandon clipping, maybe continue instead of break
+          break;
+        }
+        const aIntersect = clippingPlane.intersection(firstClipped, a);
+        const bIntersect = clippingPlane.intersection(lastClipped, b);
+        aIntersect.z = clippedZ; // something is probably wrong with intersection calculation
+        bIntersect.z = clippedZ;
+        aIntersect.normal = firstClipped.normal; // not exactly right but good enough
+        bIntersect.normal = lastClipped.normal;
+        const discard = clipPts.slice(1, -1);
+        currentFacet.splice(firstClipped.index, 1, aIntersect);
+        discard.forEach(d => currentFacet.splice(currentFacet.findIndex(c => c === d), 1));
+        let lastIndex, deleteCount;
+        if (firstClipped === lastClipped) {
+          lastIndex = currentFacet.findIndex(c => c === aIntersect);
+          deleteCount = 0;
+        } else {
+          lastIndex = currentFacet.findIndex(c => c === lastClipped);
+          deleteCount = 1;
+        }
+        currentFacet.splice(lastIndex, deleteCount, bIntersect);
       }
       currentFacet.color = facet.color || shape.color;
 
       if (shape.pointCloud || shape.wireframe) {
         rasterizer.pushPolygon(currentFacet, currentFacet.color);
       } else {
-        /**@type{Vec3}*/let sNormal;
-        sNormal = facet.normal.transform(rotationTransform);
-        if (!shape.disableBackfaceCulling) {
-          // back face culling doesn't work on a couple of the models,
-          // maybe they're left handed or something.
-          let pointOnPlane = currentFacet[2];
-          if (sNormal.dot(pointOnPlane) > 0) {
-            continue;
-          }
-        }
 
         if (currentFacet.color instanceof Vec3) {
           const lightIntensity = light.intensity * shape.contrast; // maybe contrast isn't the right word
@@ -131,7 +193,7 @@ function render() {
             }
           } else {
             vShading = null;
-            const lightRay = lightOrigin.sub(currentFacet[0]);
+            const lightRay = lightOrigin.sub(shapeLocation);
             const attenuation = lightIntensity / lightRay.magnitude;
             if (!sNormal) {
               sNormal = facet.normal.transform(rotationTransform);

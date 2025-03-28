@@ -54,7 +54,6 @@ export class Rasterizer {
       let pt = this.worldToRaster(vertices[i]);
       if (pt.z <= this.clipNear || pt.z >= this.clipFar) {
         clip = true;
-        // TODO implement clipping (for all boundaries, but z is the most problematic)
         visible = false;
       } else {
         // visible = true;
