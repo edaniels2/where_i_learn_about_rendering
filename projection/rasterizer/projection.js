@@ -46,27 +46,27 @@ export function main() {
   halfWorldH = worldH / 2;
 
   const externalModels = [
-    new ObjFile('/models/lamp.obj').parse().then(Model => {
+    new ObjFile('../../models/lamp.obj').parse().then(Model => {
       const model = new Model(new Vec3(2, 0, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7});
       shapes.push(model);
     }),
-    new ObjFile('/models/power_lines.obj').parse().then(Model => {
+    new ObjFile('../../models/power_lines.obj').parse().then(Model => {
       const model = new Model(new Vec3(4, 4.9, -14), {size: 0.1, disableBackfaceCulling: true});
       shapes.push(model);
     }),
-    new ObjFile('/models/cessna.obj').parse().then(Model => {
+    new ObjFile('../../models/cessna.obj').parse().then(Model => {
       const model = new Model(new Vec3(-10, 6, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.01});
       shapes.push(model);
     }),
-    new ObjFile('/models/minicooper_no_windows.obj').parse().then(Model => {
+    new ObjFile('../../models/minicooper_no_windows.obj').parse().then(Model => {
       const model = new Model(new Vec3(0, -1, -10), {size: 0.03, color: new Vec3(0.4, 0.53, 0.7), rotateX: -Math.PI / 2, rotateY: 0.3});
       shapes.push(model);
     }),
-    new ObjFile('/models/car.obj').parse().then(Model => {
+    new ObjFile('../../models/car.obj').parse().then(Model => {
       const model = new Model(new Vec3(-3, -1, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true});
       shapes.push(model);
     }),
-    new ObjFile('/models/al.obj').parse().then(Model => {
+    new ObjFile('../../models/al.obj').parse().then(Model => {
       const model = new Model(new Vec3(-4, -0.02, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true});
       shapes.push(model);
     }),
