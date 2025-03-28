@@ -55,7 +55,7 @@ export function main() {
       shapes.push(model);
     }),
     new ObjFile('/models/cessna.obj').parse().then(Model => {
-      const model = new Model(new Vec3(-10, 6, -50), {size: 0.3, color: new Vec3(1.3, 1.4, 1.35), rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.6});
+      const model = new Model(new Vec3(-10, 6, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.01});
       shapes.push(model);
     }),
     new ObjFile('/models/minicooper_no_windows.obj').parse().then(Model => {
@@ -63,7 +63,7 @@ export function main() {
       shapes.push(model);
     }),
     new ObjFile('/models/car.obj').parse().then(Model => {
-      const model = new Model(new Vec3(-3, -1, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2});
+      const model = new Model(new Vec3(-3, -1, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true});
       shapes.push(model);
     }),
     new ObjFile('/models/al.obj').parse().then(Model => {
