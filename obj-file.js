@@ -1,6 +1,11 @@
 import { Geometry } from './projection/geometry.js';
 import { Vec3 } from './vector.js';
 
+export async function fromObjFile(/**@type{string}*/path, /**@type{Vec3}*/position, /**@type{ModelOptions}*/options) {
+  const Model = await new ObjFile(path).parse();
+  return new Model(position, options);
+}
+
 export class ObjFile {
 
   constructor(/**@type{string}*/path) {
@@ -21,9 +26,9 @@ export class ObjFile {
     let color = null;
     for (const line of content.split(/\n/)) {
       if (line.startsWith('c')) {
-        // my own addition; all the obj files i've seen use external .mtl
-        // files for color/texture data, which would be nice to be able
-        // to read but i haven't gotten there yet
+        // my own addition; all the obj files i've seen use external .mtl files
+        // for color/texture data, which would be nice to be able to read but i
+        // haven't gotten there yet (and don't even have access to most of them)
         const rgb = line.split(' ').slice(1).map(Number);
         if (!Array.isArray(rgb)|| rgb.length != 3) {
           color = null;
@@ -81,3 +86,14 @@ export class ObjFile {
     }
   }
 }
+
+/**
+ * @typedef {{
+ *   size: number,
+ *   color: Vec3,
+ *   rotateX: number,
+ *   rotateY: number,
+ *   rotateZ: number,
+ *   contrast: number,
+ *   disableBackfaceCulling: boolean,
+ * }} ModelOptions*/

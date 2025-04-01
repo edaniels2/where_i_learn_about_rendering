@@ -7,6 +7,10 @@
   <script type="module">
     import { main } from './projection.js';
     window.start = main;
+    const minDim = visualViewport.width > visualViewport.height ? 'height' : 'width';
+    const styleEl = document.createElement('style');
+    document.head.appendChild(styleEl);
+    styleEl.sheet.insertRule(`canvas {${minDim}: 100%`);
   </script>
   <style>
     body {
@@ -15,14 +19,13 @@
       flex-direction: column;
       height: 100vh;
       user-select: none;
+      touch-action: pinch-zoom;
     }
     input {
       width: 42px;
     }
     canvas {
       margin: auto;
-      width: 640px;
-      height: 480px;
       pointer-events: all;
     }
     div.abs {
@@ -77,14 +80,14 @@
     </div>
     <div>
       <label>
-        Anti-aliasing
+        Anti-aliasing (work in progress)
         <input id="antialias" type="checkbox">
       </label>
     </div>
   </div>
 
   <div class="abs">
-    <canvas></canvas>
+    <canvas width="640" height="480"></canvas>
   </div>
 </body>
 </html>

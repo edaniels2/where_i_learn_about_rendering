@@ -1,3 +1,4 @@
+import { Plane } from '../geometry.js';
 import { SquareMatrix } from '../../matrix.js';
 import { Vec3 } from '../../vector.js';
 
@@ -14,12 +15,31 @@ export class Rasterizer {
   ) {
     width = Math.ceil(width);
     height = Math.ceil(height);
+    const aspect = width / height;
     this.imageData = new ImageData(width, height);
-    this.zBuffer = Array(width * height).fill(Infinity);
+    this.zBuffer = new Float64Array(width * height).fill(Infinity);
     this.screen = screen;
-    this.clipNear = this.screen.near;
-    this.clipFar = this.screen.far;
+
+    /**
+     * anti-aliasing is a work in progress. It does smooth the jagged edges - maybe
+     * even correctly, but creates gaps between adjacent triangles and takes too much
+     * processing. From what i've read it should be doable with minimal marginal compute
+     */
     this.ANTI_ALIASING = false;
+    this.stencilBuffer = new Float64Array(width * height * 4).fill(1);
+
+    const normalLeft = new Vec3(-1, 0, 0).transform(SquareMatrix.rotationY(-screen.fovHalf));
+    const normalRight = normalLeft.scale(new Vec3(-1, 1, 1));
+    const fovVertHalf = screen.fovHalf / aspect;
+    const normalBottom = new Vec3(0, -1, 0).transform(SquareMatrix.rotationX(fovVertHalf));
+    const normalTop = normalBottom.scale(new Vec3(1, -1, 1));
+    this.clippingPlanes = [
+      new Plane(new Vec3(0, 0, -1), -screen.near),
+      new Plane(normalLeft, 0),
+      new Plane(normalRight, 0),
+      new Plane(normalBottom, 0),
+      new Plane(normalTop, 0),
+    ];
 
     if (PROJECTION_MATRIX) {
       PERSPECTIVE_CORRECTION.z = false; // handled in the projection
@@ -29,8 +49,6 @@ export class Rasterizer {
       const s = n / screen.right;
       const sz = -f / (f - n);
       const tz = -2 * f * n / (f - n);
-      this.clipNear = -1;
-      this.clipFar = 1;
       this.projectionMatrix.set([
         [s, 0, 0, 0],
         [0, s, 0, 0],
@@ -41,38 +59,35 @@ export class Rasterizer {
   }
 
   clear() {
-    this.imageData.data.fill(0);
+    this.imageData.data.fill(255);
     this.zBuffer.fill(Infinity);
+    this.stencilBuffer.fill(1);
   }
 
-  pushTriangle(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, /**@type{{vShading: number[]}}*/attributes) {
-    /**@type{Vec3}*/const rasterVts = [];
+  pushTriangle(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, /**@type{{vShading: number[]}}*/attributes) { // probably move color into attributes
+    const visible = this.clip(vertices, color, attributes);
+    if (!visible) {
+      return;
+    }
+    /**@type{Vec3[]}*/const rasterVts = [];
     const vShading = attributes?.vShading;
     let top = this.imageData.height, left = this.imageData.width, bottom = 0, right = 0;
-    let visible = true;
-    let clip = false;
+
     for (let i = 0; i < vertices.length; i++) {
       let pt = this.worldToRaster(vertices[i]);
-      if (pt.z <= this.clipNear || pt.z >= this.clipFar) {
-        clip = true;
-        visible = false;
-      }
       rasterVts.push(pt);
       if (pt.y < top) {
-        top = Math.max(Math.ceil(pt.y), 0);
+        top = Math.max(Math.floor(pt.y), 0);
       }
       if (pt.y > bottom) {
         bottom = Math.min(Math.ceil(pt.y), this.imageData.height);
       }
       if (pt.x < left) {
-        left = Math.max(Math.ceil(pt.x), 0);
+        left = Math.max(Math.floor(pt.x), 0);
       }
       if (pt.x > right) {
         right = Math.min(Math.ceil(pt.x), this.imageData.width);
       }
-    }
-    if (!visible) {
-      return;
     }
     if (!(left < right) || !(top < bottom)) {
       return;
@@ -101,7 +116,7 @@ export class Rasterizer {
     // const tileSize = 8; // wip
 
     for (let y = top; y < bottom; y++) {
-      if (y < 0 || y >= this.imageData.height) {
+      if (y < 0 || y > this.imageData.height) {
         // shouldn't happen
         debugger;
         w0Gen.nextY();
@@ -120,27 +135,14 @@ export class Rasterizer {
           continue;
         }
 
-        if (!w0Gen.inside()) {
-          w0Gen.nextX();
-          w1Gen.nextX();
-          w2Gen.nextX();
-          continue;
+        if (!this.pxInside(w0Gen, w1Gen, w2Gen)) {
+            w0Gen.nextX();
+            w1Gen.nextX();
+            w2Gen.nextX();
+            continue;
         }
 
-        if (!w1Gen.inside()) {
-          w0Gen.nextX();
-          w1Gen.nextX();
-          w2Gen.nextX();
-          continue;
-        }
-
-        if (!w2Gen.inside()) {
-          w0Gen.nextX();
-          w1Gen.nextX();
-          w2Gen.nextX();
-          continue;
-        }
-
+        // const w0 = w0Gen.current() / area;
         const w1 = w1Gen.current() / area;
         const w2 = w2Gen.current() / area;
         const pt  = new Vec3(x, y, 1);
@@ -149,6 +151,7 @@ export class Rasterizer {
         if (PERSPECTIVE_CORRECTION.z) {
           pt.z = 1 / (1 / rasterVts[0].z + w1 * z10 + w2 * z20);
         } else {
+          // pt.z = w0 * rasterVts[0].z + w1 * rasterVts[1].z + w2 * rasterVts[2].z;
           pt.z = rasterVts[0].z + w1 * z10 + w2 * z20;
         }
 
@@ -165,12 +168,17 @@ export class Rasterizer {
             ptColor = color.scale(Math.min(shade, 1));
           }
           let r, g, b;
-          if (this.ANTI_ALIASING) {
-            const weight = Math.max(w0Gen.weight(), w1Gen.weight(), w2Gen.weight());
-            const weight0 = 1 - weight;
-            r = this.imageData.data[imageDataStart + 0] * weight0 + Math.floor(ptColor.x * 255) * weight;
-            g = this.imageData.data[imageDataStart + 1] * weight0 + Math.floor(ptColor.y * 255) * weight;
-            b = this.imageData.data[imageDataStart + 2] * weight0 + Math.floor(ptColor.z * 255) * weight;
+          const weight = this.pxWeight(w0Gen, w1Gen, w2Gen);
+          if (this.ANTI_ALIASING && weight !== 4) {
+            const coef = Math.floor(64 * (weight));
+            const weight0 = Math.floor(64 * (4 - weight));
+            r = Math.floor(this.stencilBuffer[imageDataStart + 0] * weight0 + ptColor.x * coef);
+            g = Math.floor(this.stencilBuffer[imageDataStart + 1] * weight0 + ptColor.y * coef);
+            b = Math.floor(this.stencilBuffer[imageDataStart + 2] * weight0 + ptColor.z * coef);
+
+            // r = Math.floor(this.imageData.data[imageDataStart + 0] * weight0 + ptColor.x * coef);
+            // g = Math.floor(this.imageData.data[imageDataStart + 1] * weight0 + ptColor.y * coef);
+            // b = Math.floor(this.imageData.data[imageDataStart + 2] * weight0 + ptColor.z * coef);
           } else {
             r = Math.floor(ptColor.x * 255);
             g = Math.floor(ptColor.y * 255);
@@ -183,6 +191,12 @@ export class Rasterizer {
           // a weighted sum of colors for each visible facet in this pixel
           this.imageData.data[imageDataStart + 3] = 255;
           this.zBuffer[pixelIndex] = pt.z;
+          if (this.ANTI_ALIASING) {
+            this.stencilBuffer[imageDataStart + 0] = ptColor.x;
+            this.stencilBuffer[imageDataStart + 1] = ptColor.y;
+            this.stencilBuffer[imageDataStart + 2] = ptColor.z;
+            // this.stencilBuffer[imageDataStart + 3] = 1;
+          }
         }
 
         w0Gen.nextX();
@@ -198,17 +212,25 @@ export class Rasterizer {
 
   /**
    * Divide an n-sided polygon into triangles for rasterization. Maybe not the best
-   * way this could be done but seems to work fine
+   * way this could be done but seems to work fine, as long as none of the angles
+   * between vertices are >= 180 degrees
    */
   pushPolygon(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, attributes) {
     this.pushTriangle(vertices.slice(0, 3), color, attributes);
     if (vertices.length > 3) {
       const vRemaining = [vertices.at(0), ...vertices.slice(2)];
-      if (attributes.vShading) {
+      if (attributes?.vShading) {
         attributes.vShading.splice(1, 1);
       }
       this.pushPolygon(vRemaining, color, attributes);
     }
+  }
+
+  worldToClipSpace(/**@type{Vec3}*/point) {
+    const pt = point.project(this.projectionMatrix);
+    const x = pt.x / this.screen.right;
+    const y = pt.y / this.screen.top;
+    return new Vec3(x, y, pt.z);
   }
 
   worldToRaster(/**@type{Vec3}*/ point) {
@@ -240,34 +262,26 @@ export class Rasterizer {
   getEdgeCalculations(/**@type{Vec3}*/a, /**@type{Vec3}*/b, /**@type{{x: number, y: number}}*/pt) {
     let antialias = false;
     let halfStepX, halfStepY;
+    let stepToCenter = 0;
+    const offset = this.ANTI_ALIASING ? 0.25 : 0.5;
+    pt.x = Math.floor(pt.x) + offset;
+    pt.y = Math.floor(pt.y) + offset;
     const xStep = (b.y - a.y);
     const yStep = (a.x - b.x);
     if (this.ANTI_ALIASING) {
       antialias = true;
-      halfStepX = xStep / 2;
-      halfStepY = yStep / 2;
+      halfStepX = xStep * 0.5;
+      halfStepY = yStep * 0.5;
+      stepToCenter = halfStepX * 0.5 + halfStepY * 0.5;
     }
+    // const edge = b.sub(a);
     const initial = this.edgeFn(a, b, pt);
     const coordinateGenerator = {
       rowStart: initial,
       topLeft: initial,
-      inside() {
-        if (antialias) {
-          return (this.topLeft >= 0) || (this.topRight >= 0)
-            || (this.bottomLeft >= 0) || (this.bottomRight >= 0);
-        }
-        return this.topLeft >= 0;
-      },
-      weight() {
-        const tl = this.topLeft >= 0;
-        const tr = this.topRight >= 0;
-        const bl = this.bottomLeft >= 0;
-        const br = this.bottomRight >= 0;
-        return (tl + tr + bl + br) / 4;
-      },
       current() {
         if (antialias) {
-          return (this.topLeft + this.topRight + this.bottomLeft + this.bottomRight) / 4;
+          return this.topLeft + stepToCenter;
         }
         return this.topLeft;
       },
@@ -296,13 +310,94 @@ export class Rasterizer {
           this.topLeft = this.rowStart;
         }
       },
+      topRight: undefined,
+      bottomLeft: undefined,
+      bottomRight: undefined,
+      topLeftEdge: undefined,
     };
     if (antialias) {
       const initialBottom = initial + halfStepY;
       coordinateGenerator.topRight = initial + halfStepX;
       coordinateGenerator.bottomLeft = initialBottom;
       coordinateGenerator.bottomRight = initialBottom + halfStepX;
+      // coordinateGenerator.topLeftEdge = edge.y < 0 || (edge.y == 0 && edge.x > 0);
     }
     return coordinateGenerator;
+  }
+
+  clip(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, /**@type{{vShading: number[]}}*/attributes) {
+    // TODO use clip space, i think it's supposed to be a faster calculation
+    const clipSpaceVertices = [];
+    for (const plane of this.clippingPlanes) {
+      const clipPts = [];
+      for (let i = 0; i < vertices.length; i++) {
+        // convert vertex to clip space
+        // let pt = this.worldToClipSpace(vertices[i]);
+        const pt = vertices[i];
+        if (pt.dot(plane.normal) < -plane.d) {
+          pt.index = i;
+          clipPts.push(pt);
+        }
+      }
+      if (clipPts.length == 3) {
+        // entire triangle clipped, nothing to render
+        return false;
+      }
+      if (clipPts.length == 2) {
+        // in this case we can modify the existing triangle and continue
+        const clipA = clipPts[0];
+        const clipB = clipPts[1];
+        let inside = vertices.at(clipA.index - 1);
+        if (inside == clipB) {
+          inside = vertices.at(clipB.index - 1);
+        }
+        const aIntersect = plane.intersection(clipA, inside);
+        const bIntersect = plane.intersection(clipB, inside);
+        // TODO recalculate attributes instead of just copying,
+        // but this is maybe good enough for now
+        aIntersect.normal = clipA.normal;
+        bIntersect.normal = clipB.normal;
+        vertices[clipA.index] = aIntersect;
+        vertices[clipB.index] = bIntersect;
+      }
+      if (clipPts.length == 1) {
+        // discard this triangle and create two new ones
+        const clip = clipPts[0];
+        const a = vertices.at(clip.index - 1);
+        const b = vertices.at((clip.index + 1) % vertices.length);
+        const aIntersect = plane.intersection(clip, a);
+        const bIntersect = plane.intersection(clip, b);
+        aIntersect.normal = clip.normal;
+        bIntersect.normal = clip.normal;
+        attributes?.vShading?.splice(clip.index, 0, attributes.vShading[clip.index]);
+        vertices.splice(clip.index, 1, aIntersect, bIntersect);
+        this.pushPolygon(vertices, color, attributes);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  pxInside(w0, w1, w2) {
+    return !!this.pxWeight(w0, w1, w2);
+  }
+
+  pxWeight(w0, w1, w2) {
+    const antialias = this.ANTI_ALIASING;
+    if (!antialias) {
+      return sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
+    }
+    const tl = sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
+    const tr = sampleInside(w0, 'topRight') && sampleInside(w1, 'topRight') && sampleInside(w2, 'topRight');
+    const bl = sampleInside(w0, 'bottomLeft') && sampleInside(w1, 'bottomLeft') && sampleInside(w2, 'bottomLeft');
+    const br = sampleInside(w0, 'bottomRight') && sampleInside(w1, 'bottomRight') && sampleInside(w2, 'bottomRight');
+    return (tl + tr + bl + br);
+
+    function sampleInside(sample, quadrant) {
+      // if (antialias) {
+      //   return sample[quadrant] > 0 || (sample[quadrant] == 0 && sample.topLeftEdge);
+      // }
+      return sample[quadrant] >= 0;
+    }
   }
 }

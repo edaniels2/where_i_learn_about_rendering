@@ -113,76 +113,76 @@ export class Vec3 {
     }
   }
 
-  toSpherical() {
-    // need the transformation here? swaps z and y axes
-    // const t = SquareMatrix.zUp();
-    const p = this
-      // .transform(t)
-      .normalize();
-    const theta = Math.acos(p.z);
-    const phi = Math.atan2(p.y, p.x);
-    const twoPi = 2 * Math.PI;
-    const r = Math.sqrt(this.dot(this));
-    if (phi < 0) {
-      phi += twoPi;
-    } else if (phi > twoPi) {
-      phi -= twoPi;
-    }
-    return { theta, phi, r };
-  }
+  // toSpherical() {
+  //   // need the transformation here? swaps z and y axes
+  //   // const t = SquareMatrix.zUp();
+  //   const p = this
+  //     // .transform(t)
+  //     .normalize();
+  //   const theta = Math.acos(p.z);
+  //   const phi = Math.atan2(p.y, p.x);
+  //   const twoPi = 2 * Math.PI;
+  //   const r = Math.sqrt(this.dot(this));
+  //   if (phi < 0) {
+  //     phi += twoPi;
+  //   } else if (phi > twoPi) {
+  //     phi -= twoPi;
+  //   }
+  //   return { theta, phi, r };
+  // }
 
-  get cosTheta() {
-    return this.normalize().z;
-  }
+  // get cosTheta() {
+  //   return this.normalize().z;
+  // }
 
-  get sinSqTheta() {
-    return 1 - this.cosTheta * this.cosTheta;
-  }
+  // get sinSqTheta() {
+  //   return 1 - this.cosTheta * this.cosTheta;
+  // }
 
-  // maybe momoize this also
-  get sinTheta() {
-    return Math.sqrt(this.sinSqTheta);
-  }
+  // // maybe momoize this also
+  // get sinTheta() {
+  //   return Math.sqrt(this.sinSqTheta);
+  // }
 
-  // got a bit lost on this part, not sure if these are correct
-  get cosPhi() {
-    const sinTheta = this.sinTheta;
-    if (sinTheta === 0) {
-      return 1;
-    }
-    return this.normalize().x / sinTheta;
-  }
+  // // got a bit lost on this part, not sure if these are correct
+  // get cosPhi() {
+  //   const sinTheta = this.sinTheta;
+  //   if (sinTheta === 0) {
+  //     return 1;
+  //   }
+  //   return this.normalize().x / sinTheta;
+  // }
 
-  get sinPhi() {
-    const sinTheta = this.sinTheta;
-    if (sinTheta === 0) {
-      return 0;
-    }
-    return this.normalize().y / sinTheta;
-  }
+  // get sinPhi() {
+  //   const sinTheta = this.sinTheta;
+  //   if (sinTheta === 0) {
+  //     return 0;
+  //   }
+  //   return this.normalize().y / sinTheta;
+  // }
 
-  // make a spherical class?
-  static toCartesian({theta, phi, r}) {
-    const sinTheta = Math.sin(theta);
-    const x = Math.cos(phi) * sinTheta;
-    const y = Math.sin(phi) * sinTheta;
-    const z = Math.cos(theta);
-    return new Vec3(x * r, y * r, z * r)
-      // .transform(SquareMatrix.zUp());
-  }
+  // // make a spherical class?
+  // static toCartesian({theta, phi, r}) {
+  //   const sinTheta = Math.sin(theta);
+  //   const x = Math.cos(phi) * sinTheta;
+  //   const y = Math.sin(phi) * sinTheta;
+  //   const z = Math.cos(theta);
+  //   return new Vec3(x * r, y * r, z * r)
+  //     // .transform(SquareMatrix.zUp());
+  // }
 
-  // also fairly unsure but i got the same result as the one example given
-  coordinateSystem() {
-    const normal = new Vec3(this.x, this.y, this.z);
-    let tangent, bitangent;
-    if (Math.abs(this.x) > Math.abs(this.y)) {
-      const lengthInverse = 1 / Math.sqrt(this.x * this.x + this.z * this.z);
-      tangent = new Vec3(this.z * lengthInverse, 0, this.x * -1 * lengthInverse);
-    } else {
-      const lengthInverse = 1 / Math.sqrt(this.y * this.y + this.z * this.z);
-      tangent = new Vec3(0, this.z * -1 * lengthInverse, this.y * lengthInverse);
-    }
-    bitangent = this.cross(tangent);
-    return { normal, tangent, bitangent };
-  }
+  // // also fairly unsure but i got the same result as the one example given
+  // coordinateSystem() {
+  //   const normal = new Vec3(this.x, this.y, this.z);
+  //   let tangent, bitangent;
+  //   if (Math.abs(this.x) > Math.abs(this.y)) {
+  //     const lengthInverse = 1 / Math.sqrt(this.x * this.x + this.z * this.z);
+  //     tangent = new Vec3(this.z * lengthInverse, 0, this.x * -1 * lengthInverse);
+  //   } else {
+  //     const lengthInverse = 1 / Math.sqrt(this.y * this.y + this.z * this.z);
+  //     tangent = new Vec3(0, this.z * -1 * lengthInverse, this.y * lengthInverse);
+  //   }
+  //   bitangent = this.cross(tangent);
+  //   return { normal, tangent, bitangent };
+  // }
 }

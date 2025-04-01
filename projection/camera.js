@@ -9,7 +9,7 @@ export class Camera extends Geometry {
   /**@type{SquareMatrix}*/#rotation;
 
   constructor(position) {
-    super(position || new Vec3(0, -0.35, 0));
+    super(position || new Vec3);
   }
 
   rotateX(/**@type{number}*/radians) {

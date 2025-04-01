@@ -14,7 +14,6 @@ export class Geometry {
   constructor(/**@type{Vec3}*/position, /**@type{object}*/options) {
     this.options = options;
     this.color = options?.color || new Vec3(0.5, 0.5, 0.5);
-    this.contrast = options?.contrast || 1;
     this.disableBackfaceCulling = options?.disableBackfaceCulling;
     this.fixed = options?.fixed;
     this.wireframe = options?.wireframe;
@@ -44,6 +43,7 @@ export class Geometry {
     } else if (!this.pointCloud) {
       this.facets.forEach(this.calculateNormal);
     }
+    this.contrast = (options?.contrast == undefined && this.contrast == undefined) ? 1 : options?.contrast || this.contrast;
     options?.rotateX && this.rotateX(options.rotateX);
     options?.rotateY && this.rotateY(options.rotateY);
     options?.rotateZ && this.rotateZ(options.rotateZ);
@@ -177,9 +177,9 @@ export class Plane {
     return point.dot(this.normal) + this.d;
   }
 
-  intersection(/**@type{Vec3}*/a, /**@type{Vec3}*/b) {
-    const ab = b.sub(a);
-    const t = (this.normal.dot(a) - this.d) / this.normal.dot(ab); // maybe? i ran out of math a long time ago
-    return a.add(ab.scale(t));
+  intersection(/**@type{Vec3}*/outer, /**@type{Vec3}*/inner, offsetFactor = 1.000001) {
+    const dir = inner.sub(outer).normalize();
+    const t = (-this.normal.dot(outer) - this.d) / this.normal.dot(dir);
+    return outer.add(dir.scale(t * offsetFactor));
   }
 }

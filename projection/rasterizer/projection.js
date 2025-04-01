@@ -1,21 +1,34 @@
 import { Camera } from '../camera.js';
-import { Floor } from '../shapes.js';
-import { Geometry, Plane } from '../geometry.js';
+import { Floor, Wall } from '../shapes.js';
+import { Geometry } from '../geometry.js';
 import { Vec3 } from '../../vector.js';
-import { ObjFile } from '../../obj-file.js';
+import { fromObjFile } from '../../obj-file.js';
 import { Rasterizer } from './rasterizer.js';
+import { SquareMatrix } from '../../matrix.js';
 
 // reorganize to a class that you can instantiate with a scene definition
 const camera = new Camera();
 const fov = 60;
+const fovRad = fov * Math.PI / 180;
+const fovHalf = fovRad / 2;
 
 const light = {
   origin: new Vec3(-10, 10, 5),
   intensity: 20,
   ambient: 0.25,
 };
-const shapes = [
-  new Floor(new Vec3(0, -1, -12), {size: 15, color: new Vec3(0.65, 0.72, 0.67)}),
+let shapes = [
+  new Floor(new Vec3(0, -1.35, -12), {size: 1000, color: new Vec3(0.65, 0.72, 0.67)}),
+  // new Wall({endpoints: [{x: 6, z: 6}, {x: 6, z: -18}], bottom: -1.35,}),
+  // new Wall({endpoints: [{x: 6, z: -18}, {x: -6, z: -18}], bottom: -1.35,}),
+  // new Wall({endpoints: [{x: -6, z: -18}, {x: -6, z: 6}], bottom: -1.35,}),
+  // new Wall({endpoints: [{x: -6, z: 6}, {x: 6, z: 6}], bottom: -1.35,}),
+  fromObjFile('../../models/lamp.obj', new Vec3(2, -0.35, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7}),
+  fromObjFile('../../models/power_lines.obj', new Vec3(4, 4.55, -14), {size: 0.1, disableBackfaceCulling: true}),
+  fromObjFile('../../models/cessna.obj', new Vec3(-10, 12, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.0001}),
+  fromObjFile('../../models/minicooper_no_windows.obj', new Vec3(0, -1.35, -10), {size: 0.03, color: new Vec3(0.8, 0.33, 0.3), rotateX: -Math.PI / 2, rotateY: 0.3}),
+  fromObjFile('../../models/car.obj', new Vec3(-3, -1.35, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true}),
+  fromObjFile('../../models/al.obj', new Vec3(-4, -0.37, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true}),
 ];
 
 let /**@type{number}*/worldW, /**@type{number}*/worldH;
@@ -28,67 +41,44 @@ let movement = new Vec3, prevMovementTime = 0;
 /** @type{Rasterizer} */
 let rasterizer;
 let screen;
-/**@type{Plane}*/
-let clippingPlane;
-let clippedZ;
 
 export function main() {
   canvas = document.querySelector('canvas');
   ctx = canvas.getContext('2d');
-  const { width, height } = canvas.getBoundingClientRect();
-  rasterW = canvas.width = width;
-  rasterH = canvas.height = height;
-  const aspect = width / height;
-  const fovRad = fov * Math.PI / 180;
-  worldW = Math.atan(fovRad / 2);
+  if (canvas.width && canvas.height) {
+    rasterW = canvas.width;
+    rasterH = canvas.height;
+  } else {
+    const { width, height } = canvas.getBoundingClientRect();
+    rasterW = canvas.width = width;
+    rasterH = canvas.height = height;
+  }
+  const aspect = rasterW / rasterH;
+  worldW = Math.atan(fovHalf);
   worldH = worldW / aspect;
   halfWorldW = worldW / 2;
   halfWorldH = worldH / 2;
-
-  const externalModels = [
-    new ObjFile('../../models/lamp.obj').parse().then(Model => {
-      const model = new Model(new Vec3(2, 0, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7});
-      shapes.push(model);
-    }),
-    new ObjFile('../../models/power_lines.obj').parse().then(Model => {
-      const model = new Model(new Vec3(4, 4.9, -14), {size: 0.1, disableBackfaceCulling: true});
-      shapes.push(model);
-    }),
-    new ObjFile('../../models/cessna.obj').parse().then(Model => {
-      const model = new Model(new Vec3(-10, 6, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.01});
-      shapes.push(model);
-    }),
-    new ObjFile('../../models/minicooper_no_windows.obj').parse().then(Model => {
-      const model = new Model(new Vec3(0, -1, -10), {size: 0.03, color: new Vec3(0.4, 0.53, 0.7), rotateX: -Math.PI / 2, rotateY: 0.3});
-      shapes.push(model);
-    }),
-    new ObjFile('../../models/car.obj').parse().then(Model => {
-      const model = new Model(new Vec3(-3, -1, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true});
-      shapes.push(model);
-    }),
-    new ObjFile('../../models/al.obj').parse().then(Model => {
-      const model = new Model(new Vec3(-4, -0.02, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true});
-      shapes.push(model);
-    }),
-  ];
 
   screen = {
     top: halfWorldH,
     bottom: -halfWorldH,
     right: halfWorldW,
     left: -halfWorldW,
+    fovHalf,
     near: 0.1,
     far: 1000,
   };
   rasterizer = new Rasterizer(rasterW, rasterH, screen);
-  clippingPlane = new Plane(new Vec3(0, 0, 1), -screen.near);
-  clippedZ = clippingPlane.d - 5e-5;
 
   initializeKeyboardEvents();
   initializePointerEvents();
   initializeSettings();
 
-  Promise.all(externalModels).then(() => requestAnimationFrame(render));
+  const promiseShapes = shapes.map(shape => shape instanceof Promise ? shape : Promise.resolve(shape));
+  Promise.all(promiseShapes).then((resolved) => {
+    shapes = resolved;
+    requestAnimationFrame(render);
+  });
 }
 
 function render() {
@@ -102,19 +92,13 @@ function render() {
     for (const facet of shape.facets) {
       /**@type{Vec3}*/let sNormal;
       const currentFacet = [];
-      const clipPts = [];
       let vShading = [];
-      // convert to world space & clip surfaces behind the camera
-      // TODO clip the whole viewing frustrum, should improve performance
+      // convert to world space & cull surfaces not facing the camera
       for (let i = 0; i < facet.length; i ++) {
         const point = facet[i];
         const pt = point.transform(pointTransform);
         pt.normal = point.normal?.transform(rotationTransform);
         currentFacet.push(pt);
-        if (pt.z >= screen.near) {
-          pt.index = i;
-          clipPts.push(pt);
-        }
       }
       if (!shape.disableBackfaceCulling) {
         sNormal = facet.normal.transform(rotationTransform);
@@ -125,85 +109,38 @@ function render() {
           continue;
         }
       }
-      if (clipPts.length == currentFacet.length) {
-        // all vertices are clipped so there's nothing to render
-        continue;
-      } else if (clipPts.length) {
-        let a, b;
-        const firstClipped = clipPts[0];
-        const firstPrev = facet.at(firstClipped.index - 1);
-        const firstNext = facet.at((firstClipped.index + 1) % facet.length);
-        const lastClipped = clipPts.at(-1);
-        const lastPrev = facet.at(lastClipped.index - 1);
-        const lastNext = facet.at((lastClipped.index + 1) % facet.length);
-        if (firstPrev.z < screen.near) {
-          a = firstPrev;
-        } else if (firstNext.z < screen.near) {
-          a = firstNext;
-        } else {
-          // this probably shouldn't happen but if it does we have to
-          // abandon clipping, maybe continue instead of break
-          break;
-        }
-        if (lastNext.z < screen.near) {
-          b = lastNext;
-        } else if (lastPrev.z < screen.near) {
-          b = lastPrev;
-        } else {
-          // this probably shouldn't happen but if it does we have to
-          // abandon clipping, maybe continue instead of break
-          break;
-        }
-        const aIntersect = clippingPlane.intersection(firstClipped, a);
-        const bIntersect = clippingPlane.intersection(lastClipped, b);
-        aIntersect.z = clippedZ; // something is probably wrong with intersection calculation
-        bIntersect.z = clippedZ;
-        aIntersect.normal = firstClipped.normal; // not exactly right but good enough
-        bIntersect.normal = lastClipped.normal;
-        const discard = clipPts.slice(1, -1);
-        currentFacet.splice(firstClipped.index, 1, aIntersect);
-        discard.forEach(d => currentFacet.splice(currentFacet.findIndex(c => c === d), 1));
-        let lastIndex, deleteCount;
-        if (firstClipped === lastClipped) {
-          lastIndex = currentFacet.findIndex(c => c === aIntersect);
-          deleteCount = 0;
-        } else {
-          lastIndex = currentFacet.findIndex(c => c === lastClipped);
-          deleteCount = 1;
-        }
-        currentFacet.splice(lastIndex, deleteCount, bIntersect);
-      }
       currentFacet.color = facet.color || shape.color;
-
-      if (shape.pointCloud || shape.wireframe) {
+      if (shape.pointCloud || shape.wireframe || shape.contrast === 0) {
         rasterizer.pushPolygon(currentFacet, currentFacet.color);
-      } else {
-
-        if (currentFacet.color instanceof Vec3) {
-          const lightIntensity = light.intensity * shape.contrast; // maybe contrast isn't the right word
-          if (currentFacet[0].normal) {
-            for (const pt of currentFacet) {
-              const lightRay = lightOrigin.sub(pt);
-              const attenuation = lightIntensity / lightRay.magnitude;
-              let shading = pt.normal.dot(lightRay.normalize());
-              shading *= attenuation;
-              shading *= 1 - light.ambient;
-              shading += light.ambient;
-              vShading.push(shading);
-            }
-          } else {
-            vShading = null;
-            const lightRay = lightOrigin.sub(shapeLocation);
+      } else if (currentFacet.color instanceof Vec3) {
+        const lightIntensity = light.intensity * shape.contrast; // maybe contrast isn't the right word
+        if (currentFacet[0].normal) {
+          // vertex normals available, calculate smooth shading
+          for (const pt of currentFacet) {
+            const lightRay = lightOrigin.sub(pt);
             const attenuation = lightIntensity / lightRay.magnitude;
-            if (!sNormal) {
-              sNormal = facet.normal.transform(rotationTransform);
-            }
-            let shading = sNormal.dot(lightRay.normalize());
+            let shading = pt.normal.dot(lightRay.normalize());
             shading *= attenuation;
             shading *= 1 - light.ambient;
             shading += light.ambient;
-            currentFacet.color = currentFacet.color.scale(shading);
+            vShading.push(shading);
           }
+        } else {
+          // use calculated surface normals for shading, sometimes results in
+          // 'inverted' lighting for complex shapes where it's hard to tell which
+          // direction is pointing out, but usually it's ok. Setting an objects
+          // contrast at or near 0 removes the effect.
+          vShading = null;
+          const lightRay = lightOrigin.sub(shapeLocation);
+          const attenuation = lightIntensity / lightRay.magnitude;
+          if (!sNormal) {
+            sNormal = facet.normal.transform(rotationTransform);
+          }
+          let shading = sNormal.dot(lightRay.normalize());
+          shading *= attenuation;
+          shading *= 1 - light.ambient;
+          shading += light.ambient;
+          currentFacet.color = currentFacet.color.scale(shading);
         }
       }
 
@@ -329,7 +266,8 @@ function updateCameraLocation() {
     const now = performance.now();
     const scale = (now - prevMovementTime) / 128;
     prevMovementTime = now;
-    const translation = movement.scale(scale).transform(camera.rotation.invert());
+    const translation = movement.scale(scale).transform(
+      SquareMatrix.rotationY(camera.rotationComponents.y).invert());
     camera.translate(translation.x, 0, translation.z);
     requestAnimationFrame(t => {
       if (t != prevT) {
