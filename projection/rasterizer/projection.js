@@ -66,7 +66,7 @@ export function main() {
     left: -halfWorldW,
     fovHalf,
     near: 0.1,
-    far: 1000,
+    far: 150,
   };
   rasterizer = new Rasterizer(rasterW, rasterH, screen);
 
@@ -152,7 +152,8 @@ function render() {
 }
 
 function initializePointerEvents() {
-  const movementScale = 3 / Math.min(rasterW, rasterH);
+  // const movementScale = 3 / Math.min(rasterW, rasterH);
+  const movementScale = 3 / canvas.getBoundingClientRect().width;
   document.addEventListener('pointerdown', mouseDown);
 
   function mouseDown(/**@type{PointerEvent}*/event) {

@@ -5,7 +5,7 @@ import { Vec3 } from '../../vector.js';
 const PROJECTION_MATRIX = true;
 const PERSPECTIVE_CORRECTION = {
   z: true,
-  shading: false,
+  shading: false, // probably never needed?
 };
 
 export class Rasterizer {
@@ -26,7 +26,7 @@ export class Rasterizer {
      * processing. From what i've read it should be doable with minimal marginal compute
      */
     this.ANTI_ALIASING = false;
-    this.stencilBuffer = new Float64Array(width * height * 4).fill(1);
+    this.colorBuffer = new Float64Array(width * height * 4).fill(1);
 
     const normalLeft = new Vec3(-1, 0, 0).transform(SquareMatrix.rotationY(-screen.fovHalf));
     const normalRight = normalLeft.scale(new Vec3(-1, 1, 1));
@@ -34,7 +34,8 @@ export class Rasterizer {
     const normalBottom = new Vec3(0, -1, 0).transform(SquareMatrix.rotationX(fovVertHalf));
     const normalTop = normalBottom.scale(new Vec3(1, -1, 1));
     this.clippingPlanes = [
-      new Plane(new Vec3(0, 0, -1), -screen.near),
+      new Plane(new Vec3(0, 0, 1), screen.far),
+      new Plane(new Vec3(0, 0, -1), -screen.near * 4),
       new Plane(normalLeft, 0),
       new Plane(normalRight, 0),
       new Plane(normalBottom, 0),
@@ -42,7 +43,7 @@ export class Rasterizer {
     ];
 
     if (PROJECTION_MATRIX) {
-      PERSPECTIVE_CORRECTION.z = false; // handled in the projection
+      PERSPECTIVE_CORRECTION.z = false; // doesn't seem to make any difference and a bit less compute with it off
       this.projectionMatrix  = new SquareMatrix();
       const n = screen.near;
       const f = screen.far;
@@ -61,7 +62,7 @@ export class Rasterizer {
   clear() {
     this.imageData.data.fill(255);
     this.zBuffer.fill(Infinity);
-    this.stencilBuffer.fill(1);
+    this.colorBuffer.fill(1);
   }
 
   pushTriangle(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, /**@type{{vShading: number[]}}*/attributes) { // probably move color into attributes
@@ -112,7 +113,7 @@ export class Rasterizer {
     const w0Gen = this.getEdgeCalculations(rasterVts[1], rasterVts[2], {x: left, y: top});
     const w1Gen = this.getEdgeCalculations(rasterVts[2], rasterVts[0], {x: left, y: top});
     const w2Gen = this.getEdgeCalculations(rasterVts[0], rasterVts[1], {x: left, y: top});
-    const area = this.edgeFn(rasterVts[0], rasterVts[1], rasterVts[2]);
+    const areaInv = 1 / this.edgeFn(rasterVts[0], rasterVts[1], rasterVts[2]);
     // const tileSize = 8; // wip
 
     for (let y = top; y < bottom; y++) {
@@ -124,6 +125,7 @@ export class Rasterizer {
         w2Gen.nextY();
         continue;
       }
+      let hit = false;
       for (let x = left; x < right; x++) {
         let fillTile = false;
         if (x < 0 || x > this.imageData.width) {
@@ -135,16 +137,21 @@ export class Rasterizer {
           continue;
         }
 
-        if (!this.pxInside(w0Gen, w1Gen, w2Gen)) {
-            w0Gen.nextX();
-            w1Gen.nextX();
-            w2Gen.nextX();
-            continue;
+        const weight = this.pxWeight(w0Gen, w1Gen, w2Gen);
+        if (!weight) {
+          if (hit) {
+            break;
+          }
+          w0Gen.nextX();
+          w1Gen.nextX();
+          w2Gen.nextX();
+          continue;
         }
+        hit = true;
 
-        // const w0 = w0Gen.current() / area;
-        const w1 = w1Gen.current() / area;
-        const w2 = w2Gen.current() / area;
+        // const w0 = w0Gen.current() * areaInv;
+        const w1 = w1Gen.current() * areaInv;
+        const w2 = w2Gen.current() * areaInv;
         const pt  = new Vec3(x, y, 1);
         let ptColor = color;
 
@@ -168,17 +175,16 @@ export class Rasterizer {
             ptColor = color.scale(Math.min(shade, 1));
           }
           let r, g, b;
-          const weight = this.pxWeight(w0Gen, w1Gen, w2Gen);
-          if (this.ANTI_ALIASING && weight !== 4) {
-            const coef = Math.floor(64 * (weight));
-            const weight0 = Math.floor(64 * (4 - weight));
-            r = Math.floor(this.stencilBuffer[imageDataStart + 0] * weight0 + ptColor.x * coef);
-            g = Math.floor(this.stencilBuffer[imageDataStart + 1] * weight0 + ptColor.y * coef);
-            b = Math.floor(this.stencilBuffer[imageDataStart + 2] * weight0 + ptColor.z * coef);
+          if (/* false &&  */this.ANTI_ALIASING && weight == 1) {
+            // const coef = 127.5 * weight;
+            // const weight0 = 127.5 * (2 - weight);
+            r = Math.floor((this.colorBuffer[imageDataStart + 0]/*  * weight0 */ + ptColor.x/*  * coef */) * 127.5);
+            g = Math.floor((this.colorBuffer[imageDataStart + 1]/*  * weight0 */ + ptColor.y/*  * coef */) * 127.5);
+            b = Math.floor((this.colorBuffer[imageDataStart + 2]/*  * weight0 */ + ptColor.z/*  * coef */) * 127.5);
 
-            // r = Math.floor(this.imageData.data[imageDataStart + 0] * weight0 + ptColor.x * coef);
-            // g = Math.floor(this.imageData.data[imageDataStart + 1] * weight0 + ptColor.y * coef);
-            // b = Math.floor(this.imageData.data[imageDataStart + 2] * weight0 + ptColor.z * coef);
+            // r = Math.floor(Math.sqrt(this.colorBuffer[imageDataStart + 0] * this.colorBuffer[imageDataStart + 0] + ptColor.x * ptColor.x) * 127.5);
+            // g = Math.floor(Math.sqrt(this.colorBuffer[imageDataStart + 1] * this.colorBuffer[imageDataStart + 1] + ptColor.y * ptColor.y) * 127.5);
+            // b = Math.floor(Math.sqrt(this.colorBuffer[imageDataStart + 2] * this.colorBuffer[imageDataStart + 2] + ptColor.z * ptColor.z) * 127.5);
           } else {
             r = Math.floor(ptColor.x * 255);
             g = Math.floor(ptColor.y * 255);
@@ -192,10 +198,9 @@ export class Rasterizer {
           this.imageData.data[imageDataStart + 3] = 255;
           this.zBuffer[pixelIndex] = pt.z;
           if (this.ANTI_ALIASING) {
-            this.stencilBuffer[imageDataStart + 0] = ptColor.x;
-            this.stencilBuffer[imageDataStart + 1] = ptColor.y;
-            this.stencilBuffer[imageDataStart + 2] = ptColor.z;
-            // this.stencilBuffer[imageDataStart + 3] = 1;
+            this.colorBuffer[imageDataStart + 0] = ptColor.x;
+            this.colorBuffer[imageDataStart + 1] = ptColor.y;
+            this.colorBuffer[imageDataStart + 2] = ptColor.z;
           }
         }
 
@@ -216,13 +221,17 @@ export class Rasterizer {
    * between vertices are >= 180 degrees
    */
   pushPolygon(/**@type{Vec3[]}*/vertices, /**@type{Vec3}*/color, attributes) {
-    this.pushTriangle(vertices.slice(0, 3), color, attributes);
-    if (vertices.length > 3) {
+    if (vertices.length == 3) {
+      this.pushTriangle(vertices, color, attributes);
+    } else {
+      const firstTriangle = vertices.slice(0, 3).map(v => new Vec3(v.x, v.y, v.z));
+      this.pushTriangle(firstTriangle, color, attributes);
       const vRemaining = [vertices.at(0), ...vertices.slice(2)];
-      if (attributes?.vShading) {
-        attributes.vShading.splice(1, 1);
+      const aRemaining = structuredClone(attributes);
+      if (aRemaining?.vShading) {
+        aRemaining.vShading.splice(1, 1);
       }
-      this.pushPolygon(vRemaining, color, attributes);
+      this.pushPolygon(vRemaining, color, aRemaining);
     }
   }
 
@@ -262,7 +271,7 @@ export class Rasterizer {
   getEdgeCalculations(/**@type{Vec3}*/a, /**@type{Vec3}*/b, /**@type{{x: number, y: number}}*/pt) {
     let antialias = false;
     let halfStepX, halfStepY;
-    let stepToCenter = 0;
+    let stepToCenter = 0, brSampleOffset = 0;
     const offset = this.ANTI_ALIASING ? 0.25 : 0.5;
     pt.x = Math.floor(pt.x) + offset;
     pt.y = Math.floor(pt.y) + offset;
@@ -273,8 +282,9 @@ export class Rasterizer {
       halfStepX = xStep * 0.5;
       halfStepY = yStep * 0.5;
       stepToCenter = halfStepX * 0.5 + halfStepY * 0.5;
+      brSampleOffset = halfStepY + halfStepX;
     }
-    // const edge = b.sub(a);
+    const edge = b.sub(a);
     const initial = this.edgeFn(a, b, pt);
     const coordinateGenerator = {
       rowStart: initial,
@@ -291,8 +301,8 @@ export class Rasterizer {
       nextX() {
         if (antialias) {
           this.topLeft += xStep;
-          this.topRight += xStep;
-          this.bottomLeft += xStep;
+          // this.topRight += xStep;
+          // this.bottomLeft += xStep;
           this.bottomRight += xStep;
         } else {
           this.topLeft += xStep;
@@ -302,25 +312,25 @@ export class Rasterizer {
         if (antialias) {
           this.rowStart += yStep;
           this.topLeft = this.rowStart;
-          this.topRight = this.topLeft + halfStepX;
-          this.bottomLeft = this.topLeft + halfStepY;
-          this.bottomRight = this.bottomLeft + halfStepX;
+          // this.topRight = this.topLeft + halfStepX;
+          // this.bottomLeft = this.topLeft + halfStepY;
+          this.bottomRight = this.topLeft + brSampleOffset;
         } else {
           this.rowStart += yStep;
           this.topLeft = this.rowStart;
         }
       },
-      topRight: undefined,
-      bottomLeft: undefined,
+      // topRight: undefined,
+      // bottomLeft: undefined,
       bottomRight: undefined,
       topLeftEdge: undefined,
     };
     if (antialias) {
-      const initialBottom = initial + halfStepY;
-      coordinateGenerator.topRight = initial + halfStepX;
-      coordinateGenerator.bottomLeft = initialBottom;
-      coordinateGenerator.bottomRight = initialBottom + halfStepX;
-      // coordinateGenerator.topLeftEdge = edge.y < 0 || (edge.y == 0 && edge.x > 0);
+      // const initialBottom = initial + halfStepY;
+      // coordinateGenerator.topRight = initial + halfStepX;
+      // coordinateGenerator.bottomLeft = initialBottom;
+      coordinateGenerator.bottomRight = coordinateGenerator.topLeft + brSampleOffset;
+      coordinateGenerator.topLeftEdge = edge.y < 0 || (edge.y == 0 && edge.x > 0);
     }
     return coordinateGenerator;
   }
@@ -388,14 +398,15 @@ export class Rasterizer {
       return sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
     }
     const tl = sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
-    const tr = sampleInside(w0, 'topRight') && sampleInside(w1, 'topRight') && sampleInside(w2, 'topRight');
-    const bl = sampleInside(w0, 'bottomLeft') && sampleInside(w1, 'bottomLeft') && sampleInside(w2, 'bottomLeft');
+    // const tr = sampleInside(w0, 'topRight') && sampleInside(w1, 'topRight') && sampleInside(w2, 'topRight');
+    // const bl = sampleInside(w0, 'bottomLeft') && sampleInside(w1, 'bottomLeft') && sampleInside(w2, 'bottomLeft');
     const br = sampleInside(w0, 'bottomRight') && sampleInside(w1, 'bottomRight') && sampleInside(w2, 'bottomRight');
-    return (tl + tr + bl + br);
+    return tl + br;
 
     function sampleInside(sample, quadrant) {
-      // if (antialias) {
-      //   return sample[quadrant] > 0 || (sample[quadrant] == 0 && sample.topLeftEdge);
+      // return sample[quadrant] > 0 || (sample.topLeftEdge && sample[quadrant] == 0);
+      if (antialias) {
+      //   return (sample[quadrant] > 0) || (sample[quadrant] == 0 && sample.topLeftEdge);
       // }
       return sample[quadrant] >= 0;
     }
