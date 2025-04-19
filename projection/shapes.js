@@ -58,7 +58,7 @@ export class Wall extends Fixed {
 
   // this way depends on the order the endpoints are defined, need to generalize that
   define() {
-    /**@type{number}*/const bottom = this.options?.bottom || -1;
+    /**@type{number}*/const bottom = this.options?.bottom == undefined ? -1 : this.options.bottom;
     /**@type{number}*/const top = this.options?.top || bottom + (this.options?.height || 4);
     /**@type{Vec3}*/const a = this.options?.endpoints[0]; // maybe add some validation
     /**@type{Vec3}*/const b = this.options?.endpoints[1];
@@ -76,7 +76,6 @@ export class Wall extends Fixed {
     this.facets[0].invertNorm = true;
     if (this.options?.color) {
       this.facets[0].color = this.color;
-      this.facets[1].color = this.color;
     } else {
       this.randomColors();
     }

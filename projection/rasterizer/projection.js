@@ -18,17 +18,22 @@ const light = {
   ambient: 0.25,
 };
 let shapes = [
-  new Floor(new Vec3(0, -1.35, -12), {size: 1000, color: new Vec3(0.65, 0.72, 0.67)}),
+  // new Wall({endpoints: [{x: 0, z: -1}, {x: -0.25, z: -1}], bottom: -0.25, height: 0.25}),
+  // new Wall({endpoints: [{x: 0.25, z: -1}, {x: 0, z: -1}], bottom: -0.25, height: 0.25}),
+  // new Wall({endpoints: [{x: 0, z: -1}, {x: -0.25, z: -1}], bottom: 0, height: 0.25}),
+  // new Wall({endpoints: [{x: 0.25, z: -1}, {x: 0, z: -1}], bottom: 0, height: 0.25}),
+
+  new Floor(new Vec3(0, -1.35, -12), {size: 1000, color: new Vec3(0.65, 0.72, 0.67),}),
   // new Wall({endpoints: [{x: 6, z: 6}, {x: 6, z: -18}], bottom: -1.35,}),
   // new Wall({endpoints: [{x: 6, z: -18}, {x: -6, z: -18}], bottom: -1.35,}),
   // new Wall({endpoints: [{x: -6, z: -18}, {x: -6, z: 6}], bottom: -1.35,}),
   // new Wall({endpoints: [{x: -6, z: 6}, {x: 6, z: 6}], bottom: -1.35,}),
-  fromObjFile('../../models/lamp.obj', new Vec3(2, -0.35, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7}),
-  fromObjFile('../../models/power_lines.obj', new Vec3(4, 4.55, -14), {size: 0.1, disableBackfaceCulling: true}),
-  fromObjFile('../../models/cessna.obj', new Vec3(-10, 12, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.0001}),
-  fromObjFile('../../models/minicooper_no_windows.obj', new Vec3(0, -1.35, -10), {size: 0.03, color: new Vec3(0.8, 0.33, 0.3), rotateX: -Math.PI / 2, rotateY: 0.3}),
-  fromObjFile('../../models/car.obj', new Vec3(-3, -1.35, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true}),
-  fromObjFile('../../models/al.obj', new Vec3(-4, -0.37, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true}),
+  fromObjFile('../../models/lamp.obj', new Vec3(2, -0.35, -12), {size: 0.3, disableBackfaceCulling: true, contrast: 2.7,}),
+  fromObjFile('../../models/power_lines.obj', new Vec3(4, 4.55, -14), {size: 0.1, disableBackfaceCulling: true,}),
+  fromObjFile('../../models/cessna.obj', new Vec3(-10, 12, -50), {size: 0.3, rotateZ: -0.2, rotateX: 0.4, disableBackfaceCulling: true, contrast: 0.0001,}),
+  fromObjFile('../../models/minicooper_no_windows.obj', new Vec3(0, -1.35, -10), {size: 0.03, color: new Vec3(0.8, 0.33, 0.3), rotateX: -Math.PI / 2, rotateY: 0.3,}),
+  fromObjFile('../../models/car.obj', new Vec3(-3, -1.35, -14), {color: new Vec3(1.1, 0.9, 0.12), rotateY: -Math.PI / 2, disableBackfaceCulling: true,}),
+  fromObjFile('../../models/al.obj', new Vec3(-4, -0.37, -12), {size: 0.3, color: new Vec3(3,3,3), rotateY: Math.PI / 3, rotateZ: -0.08, contrast: 1.4, disableBackfaceCulling: true,}),
 ];
 
 let /**@type{number}*/worldW, /**@type{number}*/worldH;
@@ -40,11 +45,11 @@ let movement = new Vec3, prevMovementTime = 0;
 
 /** @type{Rasterizer} */
 let rasterizer;
-let screen;
+let viewingFrustrum;
 
 export function main() {
   canvas = document.querySelector('canvas');
-  ctx = canvas.getContext('2d');
+  // ctx = canvas.getContext('2d');
   if (canvas.width && canvas.height) {
     rasterW = canvas.width;
     rasterH = canvas.height;
@@ -59,16 +64,17 @@ export function main() {
   halfWorldW = worldW / 2;
   halfWorldH = worldH / 2;
 
-  screen = {
+  viewingFrustrum = {
     top: halfWorldH,
     bottom: -halfWorldH,
     right: halfWorldW,
     left: -halfWorldW,
     fovHalf,
-    near: 0.1,
-    far: 150,
+    focalLength: 0.1,
+    nearClip: 0.3,
+    farClip: 150,
   };
-  rasterizer = new Rasterizer(rasterW, rasterH, screen);
+  rasterizer = new Rasterizer(rasterW, rasterH, viewingFrustrum, canvas);
 
   initializeKeyboardEvents();
   initializePointerEvents();
@@ -82,6 +88,7 @@ export function main() {
 }
 
 function render() {
+  // performance.mark('start');
   const cameraTransform = camera.positionAndScale.multiply(camera.rotation);
   const lightOrigin = light.origin.transform(cameraTransform);
   rasterizer.clear();
@@ -110,7 +117,7 @@ function render() {
         }
       }
       currentFacet.color = facet.color || shape.color;
-      if (shape.pointCloud || shape.wireframe || shape.contrast === 0) {
+      if (shape.contrast === 0) {
         rasterizer.pushPolygon(currentFacet, currentFacet.color);
       } else if (currentFacet.color instanceof Vec3) {
         const lightIntensity = light.intensity * shape.contrast; // maybe contrast isn't the right word
@@ -123,7 +130,7 @@ function render() {
             shading *= attenuation;
             shading *= 1 - light.ambient;
             shading += light.ambient;
-            vShading.push(shading);
+            vShading.push(Math.max(shading, 0));
           }
         } else {
           // use calculated surface normals for shading, sometimes results in
@@ -140,14 +147,25 @@ function render() {
           shading *= attenuation;
           shading *= 1 - light.ambient;
           shading += light.ambient;
-          currentFacet.color = currentFacet.color.scale(shading);
+          currentFacet.color = currentFacet.color.scale(Math.max(shading, 0));
         }
       }
 
       rasterizer.pushPolygon(currentFacet, currentFacet.color, { vShading });
     }
   }
-  ctx.putImageData(rasterizer.imageData, 0, 0);
+  rasterizer.render();
+  // performance.mark('end');
+  // performance.measure('duration', 'start', 'end');
+  // console.log(performance.getEntriesByName('duration')[0].duration)
+  // performance.clearMeasures();
+  // performance.clearMarks();
+  // ctx.putImageData(rasterizer.imageData, 0, 0);
+  // ctx.moveTo(0, rasterH / 2);
+  // ctx.lineTo(rasterW, rasterH / 2);
+  // ctx.moveTo(rasterW / 2, 0);
+  // ctx.lineTo(rasterW / 2, rasterH);
+  // ctx.stroke();
   updateCameraLocation();
 }
 

@@ -16,7 +16,6 @@ export class Geometry {
     this.color = options?.color || new Vec3(0.5, 0.5, 0.5);
     this.disableBackfaceCulling = options?.disableBackfaceCulling;
     this.fixed = options?.fixed;
-    this.wireframe = options?.wireframe;
     this.zSortFacets = options?.zSortFacets;
     this.size = options?.size || 1;
     this.opacity = options?.opacity || 1;
@@ -40,7 +39,7 @@ export class Geometry {
     }
     if (this.normals) {
       this.mapNormals();
-    } else if (!this.pointCloud) {
+    } else {
       this.facets.forEach(this.calculateNormal);
     }
     this.contrast = (options?.contrast == undefined && this.contrast == undefined) ? 1 : options?.contrast || this.contrast;

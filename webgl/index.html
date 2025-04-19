@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGL</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      user-select: none;
+      touch-action: pinch-zoom;
+    }
+    canvas {
+      margin: auto;
+      pointer-events: all;
+      width: 100%;
+      height: 100%;
+    }
+    div.abs {
+      position: absolute;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      margin: 0;
+    }
+  </style>
+  <script type="module">
+    import { start, movement } from './webgl.js';
+    import { lighting } from './webgl.js';
+    window.lighting = lighting;
+
+    const canvas = document.querySelector('canvas');
+    const { width, height } = canvas.getBoundingClientRect();
+    canvas.width = width;
+    canvas.height = height;
+
+    initializeKeyboardEvents();
+    initializePointerEvents();
+    start();
+
+    function initializeKeyboardEvents() {
+      document.addEventListener('keydown', startMove);
+      document.addEventListener('keyup', stopMove);
+      const scaleDn = Math.cos(Math.PI / 4);
+      const scaleUp = 1 / scaleDn;
+
+      function startMove(/**@type{KeyboardEvent}*/event) {
+        switch (event.key) {
+          case 'w':
+            if (movement.z) {
+              return;
+            }
+            movement.z += movement.x ? scaleDn : 1;
+            break;
+          case 's':
+            if (movement.z) {
+              return;
+            }
+            movement.z -= movement.x ? scaleDn : 1;
+            break;
+          case 'a':
+            if (movement.x) {
+              return;
+            }
+            movement.x += movement.z ? scaleDn : 1;
+            break;
+          case 'd':
+            if (movement.x) {
+              return;
+            }
+            movement.x -= movement.z ? scaleDn : 1;
+            break;
+        }
+      }
+
+      function stopMove(/**@type{KeyboardEvent}*/event) {
+        switch (event.key) {
+          case 'w':
+          case 's':
+            movement.z = 0;
+            if (movement.x && Math.abs(movement.x) < 0.9) {
+              movement.x *= scaleUp;
+            }
+            break;
+          case 'a':
+          case 'd':
+            movement.x = 0;
+            if (movement.z && Math.abs(movement.z) < 0.9) {
+              movement.z *= scaleUp;
+            }
+            break;
+        }
+      }
+    }
+
+    function initializePointerEvents() {
+      let prevX, prevY;
+      const canvas = document.querySelector('canvas');
+      const movementScale = 2 / canvas.getBoundingClientRect().width;
+      document.addEventListener('pointerdown', mouseDown);
+
+      function mouseDown(/**@type{PointerEvent}*/event) {
+        const {
+          top: canvasTop,
+          left: canvasLeft,
+        } = canvas.getBoundingClientRect();
+        prevX = event.pageX;
+        prevY = event.pageY;
+        document.addEventListener('pointermove', mouseMove);
+        document.addEventListener('pointerup', () => document.removeEventListener('pointermove', mouseMove));
+      }
+
+      function mouseMove(/**@type{PointerEvent}*/event) {
+        movement.rotateY += (event.pageX - prevX) * movementScale;
+        movement.rotateX  += (event.pageY - prevY) * movementScale;
+        prevX = event.pageX;
+        prevY = event.pageY;
+      }
+    }
+
+  </script>
+</head>
+<body>
+  <div class="abs">
+    <canvas ></canvas>
+  </div>
+  <!-- <div>
+    <p>Lighting</p>
+    <label>
+      Intensity
+      <input type="range">
+    </label>
+    <label>
+      Ambient
+      <input type="range">
+    </label>
+  </div> -->
+</body>
+</html>

@@ -7,16 +7,22 @@
 </head>
 <body>
   <div>
-    <a href="./projection/canvas_api/">Perspective projection using canvas api</a> - 60fps but basic. Its best trick is simple directional lighting
+    <a href="./projection/canvas_api/">2d canvas api</a> - First foray into 3d rendering. Projects a scene to a (virtual)
+    image plane and uses the 2d canvas api to draw it with lines and fills. Runs pretty smoothly but it's very limited.
   </div>
 
   <div>
-    <a href="./projection/rasterizer/">Perspective projection using full rasterization algorithm</a> - fast enough for real time as long as
-    the scene isn't too complex and you're not fussy about frame rate. Implements smooth shading.
+    <a href="./projection/rasterizer/">full rasterization algorithm</a> - Lib-free & minimal canvas api implementation
+    of a rasterizer running on the js main thread. Looks decent, but barely manages a usable framerate.
   </div>
 
+    <div>
+      <a href="./webgl/">WebGL</a> - Using what I've learned so far with an actual graphics api that runs on the gpu.
+    </div>
+
   <div>
-    <a href="./raytracer/">Raytracer</a> - not real time but handles lighting effects really well
+    <a href="./raytracer/">Raytracer</a> - Mostly an exercise in copying/transposing an example from c++ to js. Not interactive,
+    and takes a few seconds to render. Will get more into raytracing later.
   </div>
 </body>
 </html>

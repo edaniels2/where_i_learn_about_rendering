@@ -2,6 +2,11 @@ import { Plane } from '../geometry.js';
 import { SquareMatrix } from '../../matrix.js';
 import { Vec3 } from '../../vector.js';
 
+const NUM_WORKERS = 3;
+const WRITE_32 = true;
+
+const SHOW_TESTED = false;
+
 const PROJECTION_MATRIX = true;
 const PERSPECTIVE_CORRECTION = {
   z: true,
@@ -11,14 +16,30 @@ const PERSPECTIVE_CORRECTION = {
 export class Rasterizer {
 
   constructor(/**@type{number*/width, /**@type{number*/height,
-    /**@type{{top: number, bottom: number, left: number, right: number, near: number, far: number}}*/screen
+    /**@type{{top: number, bottom: number, left: number, right: number, near: number, far: number}}*/screen,
+    /**@type HTMLCanvasElement*/canvas,
   ) {
     width = Math.ceil(width);
     height = Math.ceil(height);
     const aspect = width / height;
+    const byteLength = width * height * 4;
+    this.halfWidth = width / 2;
+    this.halfHeight = height / 2;
+    this.worldWidthInv = 1 / screen.right;
+    this.worldHeightInv = 1 / screen.top;
     this.imageData = new ImageData(width, height);
     this.zBuffer = new Float64Array(width * height).fill(Infinity);
+    if (WRITE_32) {
+      this.imageDataView = new DataView(this.imageData.data.buffer);
+    }
+
+    // this.sharedImageBuffer = new SharedArrayBuffer(byteLength);
+    // const sharedZBuffer = new SharedArrayBuffer(byteLength * 2);
+    // this.imageBuffer = new Uint8ClampedArray(this.sharedImageBuffer);
+
+
     this.screen = screen;
+    this.ctx = canvas.getContext('2d');
 
     /**
      * anti-aliasing is a work in progress. It does smooth the jagged edges - maybe
@@ -26,7 +47,7 @@ export class Rasterizer {
      * processing. From what i've read it should be doable with minimal marginal compute
      */
     this.ANTI_ALIASING = false;
-    this.colorBuffer = new Float64Array(width * height * 4).fill(1);
+    this.colorBuffer = new Float64Array(byteLength).fill(1);
 
     const normalLeft = new Vec3(-1, 0, 0).transform(SquareMatrix.rotationY(-screen.fovHalf));
     const normalRight = normalLeft.scale(new Vec3(-1, 1, 1));
@@ -34,8 +55,8 @@ export class Rasterizer {
     const normalBottom = new Vec3(0, -1, 0).transform(SquareMatrix.rotationX(fovVertHalf));
     const normalTop = normalBottom.scale(new Vec3(1, -1, 1));
     this.clippingPlanes = [
-      new Plane(new Vec3(0, 0, 1), screen.far),
-      new Plane(new Vec3(0, 0, -1), -screen.near * 4),
+      new Plane(new Vec3(0, 0, 1), screen.farClip),
+      new Plane(new Vec3(0, 0, -1), -screen.nearClip),
       new Plane(normalLeft, 0),
       new Plane(normalRight, 0),
       new Plane(normalBottom, 0),
@@ -45,8 +66,8 @@ export class Rasterizer {
     if (PROJECTION_MATRIX) {
       PERSPECTIVE_CORRECTION.z = false; // doesn't seem to make any difference and a bit less compute with it off
       this.projectionMatrix  = new SquareMatrix();
-      const n = screen.near;
-      const f = screen.far;
+      const n = screen.focalLength;
+      const f = screen.farClip;
       const s = n / screen.right;
       const sz = -f / (f - n);
       const tz = -2 * f * n / (f - n);
@@ -57,9 +78,19 @@ export class Rasterizer {
         [0, 0, tz, 0],
       ]);
     }
+    // /**@type (Worker&{busy: boolean})[] */
+    // this.workers = Array(NUM_WORKERS).fill().map(() => new Worker('./rasterizer.worker.js'));
+    // this.workers.forEach(w => w.postMessage({ imageBuffer: this.sharedImageBuffer, zBuffer: sharedZBuffer, width, height, screen }));
+    // this.workerIndex = 0;
+  }
+
+  render() {
+    // this.imageData.data.set(this.imageBuffer);
+    this.ctx.putImageData(this.imageData, 0, 0);
   }
 
   clear() {
+    // this.workers.forEach(w => w.postMessage({ clear: true }));
     this.imageData.data.fill(255);
     this.zBuffer.fill(Infinity);
     this.colorBuffer.fill(1);
@@ -70,6 +101,16 @@ export class Rasterizer {
     if (!visible) {
       return;
     }
+
+    // attributes.color = {x: color.x, y: color.y, z: color.z};
+    // vertices = vertices.map(v => ({x: v.x, y: v.y, z: v.z}));
+    // const workerNum = this.workerIndex++ % NUM_WORKERS;
+    // const currentWorker = this.workers[workerNum];
+    // if (currentWorker) {
+    //   currentWorker.postMessage({triangle: {vertices, attributes}});
+    // }
+    // return;
+
     /**@type{Vec3[]}*/const rasterVts = [];
     const vShading = attributes?.vShading;
     let top = this.imageData.height, left = this.imageData.width, bottom = 0, right = 0;
@@ -110,39 +151,49 @@ export class Rasterizer {
       shad20 = vShading ? (vShading[2] - vShading[0]) : null;
     }
 
-    const w0Gen = this.getEdgeCalculations(rasterVts[1], rasterVts[2], {x: left, y: top});
+    // const w0Gen = this.getEdgeCalculations(rasterVts[1], rasterVts[2], {x: left, y: top});
     const w1Gen = this.getEdgeCalculations(rasterVts[2], rasterVts[0], {x: left, y: top});
     const w2Gen = this.getEdgeCalculations(rasterVts[0], rasterVts[1], {x: left, y: top});
-    const areaInv = 1 / this.edgeFn(rasterVts[0], rasterVts[1], rasterVts[2]);
+    const area = this.edgeFn(rasterVts[0], rasterVts[1], rasterVts[2]);
+    const areaInv = 1 / area;
     // const tileSize = 8; // wip
 
     for (let y = top; y < bottom; y++) {
-      if (y < 0 || y > this.imageData.height) {
-        // shouldn't happen
-        debugger;
-        w0Gen.nextY();
-        w1Gen.nextY();
-        w2Gen.nextY();
-        continue;
-      }
+      // if (y < 0 || y > this.imageData.height) {
+      //   // shouldn't happen
+      //   debugger;
+      //   w0Gen.nextY();
+      //   w1Gen.nextY();
+      //   w2Gen.nextY();
+      //   continue;
+      // }
       let hit = false;
       for (let x = left; x < right; x++) {
-        let fillTile = false;
-        if (x < 0 || x > this.imageData.width) {
-          // shouldn't happen
-          debugger;
-          w0Gen.nextX();
-          w1Gen.nextX();
-          w2Gen.nextX();
-          continue;
-        }
+        // visualise tested area
+        // if (SHOW_TESTED) {
+        //   const pixelIndex = y * this.imageData.width + x;
+        //   const imageDataStart = pixelIndex * 4;
+        //   this.imageData.data[imageDataStart + 0] = 100;
+        //   this.imageData.data[imageDataStart + 1] = 200;
+        //   this.imageData.data[imageDataStart + 2] = 100;
+        //   this.imageData.data[imageDataStart + 3] = 200;
+        // }
+        // let fillTile = false;
+        // if (x < 0 || x > this.imageData.width) {
+        //   // shouldn't happen
+        //   debugger;
+        //   w0Gen.nextX();
+        //   w1Gen.nextX();
+        //   w2Gen.nextX();
+        //   continue;
+        // }
 
-        const weight = this.pxWeight(w0Gen, w1Gen, w2Gen);
+        const weight = this.pxWeight(/* w0Gen,  */w1Gen, w2Gen, area);
         if (!weight) {
           if (hit) {
             break;
           }
-          w0Gen.nextX();
+          // w0Gen.nextX();
           w1Gen.nextX();
           w2Gen.nextX();
           continue;
@@ -163,7 +214,7 @@ export class Rasterizer {
         }
 
         const pixelIndex = y * this.imageData.width + x;
-        if (pt.z < this.zBuffer[pixelIndex]) {
+        if (pt.z < this.zBuffer[pixelIndex]/*  || (this.ANTI_ALIASING && weight == 1) */) { // this is closer to fixed; it must be related to the z buffer check
           const imageDataStart = pixelIndex * 4;
           if (vShading) {
             let shade;
@@ -190,12 +241,22 @@ export class Rasterizer {
             g = Math.floor(ptColor.y * 255);
             b = Math.floor(ptColor.z * 255);
           }
-          this.imageData.data[imageDataStart + 0] = r;
-          this.imageData.data[imageDataStart + 1] = g;
-          this.imageData.data[imageDataStart + 2] = b;
-          // is alpha useful in this context? Transparency would have to account for
-          // a weighted sum of colors for each visible facet in this pixel
-          this.imageData.data[imageDataStart + 3] = 255;
+          if (WRITE_32) {
+            // r = Math.max(r, 0);
+            // g = Math.max(g, 0);
+            // b = Math.max(b, 0);
+            r = Math.min(r, 255);
+            g = Math.min(g, 255);
+            b = Math.min(b, 255);
+            this.imageDataView.setUint32(imageDataStart, r | g << 8 | b << 16 | 255 << 24, true);
+          } else {
+            this.imageData.data[imageDataStart + 0] = r;
+            this.imageData.data[imageDataStart + 1] = g;
+            this.imageData.data[imageDataStart + 2] = b;
+            // is alpha useful in this context? Transparency would have to account for
+            // a weighted sum of colors for each visible facet in this pixel
+            this.imageData.data[imageDataStart + 3] = 255;
+          }
           this.zBuffer[pixelIndex] = pt.z;
           if (this.ANTI_ALIASING) {
             this.colorBuffer[imageDataStart + 0] = ptColor.x;
@@ -204,12 +265,12 @@ export class Rasterizer {
           }
         }
 
-        w0Gen.nextX();
+        // w0Gen.nextX();
         w1Gen.nextX();
         w2Gen.nextX();
       }
 
-      w0Gen.nextY();
+      // w0Gen.nextY();
       w1Gen.nextY();
       w2Gen.nextY();
     }
@@ -227,11 +288,11 @@ export class Rasterizer {
       const firstTriangle = vertices.slice(0, 3).map(v => new Vec3(v.x, v.y, v.z));
       this.pushTriangle(firstTriangle, color, attributes);
       const vRemaining = [vertices.at(0), ...vertices.slice(2)];
-      const aRemaining = structuredClone(attributes);
-      if (aRemaining?.vShading) {
-        aRemaining.vShading.splice(1, 1);
+      // const aRemaining = structuredClone(attributes);
+      if (attributes?.vShading) {
+        attributes.vShading.splice(1, 1);
       }
-      this.pushPolygon(vRemaining, color, aRemaining);
+      this.pushPolygon(vRemaining, color, attributes);
     }
   }
 
@@ -240,6 +301,12 @@ export class Rasterizer {
     const x = pt.x / this.screen.right;
     const y = pt.y / this.screen.top;
     return new Vec3(x, y, pt.z);
+  }
+
+  clipSpaceToRaster(/**@type{Vec3}*/ point) {
+    const xRaster = (point.x + 1) * this.halfWidth;
+    const yRaster = (1 - point.y) * this.halfHeight;
+    return new Vec3(xRaster, yRaster, z);
   }
 
   worldToRaster(/**@type{Vec3}*/ point) {
@@ -251,16 +318,17 @@ export class Rasterizer {
       z = pt.z
     } else {
       z = -point.z;
-      xScreen = this.screen.near * point.x / z;
-      yScreen = this.screen.near * point.y / z;
+      const coef = this.screen.focalLength / z;
+      xScreen = point.x * coef;
+      yScreen = point.y * coef;
     }
     // const { right, left, top, bottom } = this.screen;
     // const xNDC = 2 * xScreen / (right - left) - (right + left) / (right - left); // but assuming l == -r much of that simplifies to zero
     // const yNDC = 2 * yScreen / (top - bottom) - (top + bottom) / (top - bottom); // same
-    const xNDC = xScreen / (this.screen.right);
-    const yNDC = yScreen / (this.screen.top);
-    const xRaster = (xNDC + 1) / 2 * this.imageData.width;
-    const yRaster = (1 - yNDC) / 2 * this.imageData.height;
+    const xNDC = xScreen * this.worldWidthInv;
+    const yNDC = yScreen * this.worldHeightInv;
+    const xRaster = (xNDC + 1) * this.halfWidth;
+    const yRaster = (1 - yNDC) * this.halfHeight;
     return new Vec3(xRaster, yRaster, z);
   }
 
@@ -290,6 +358,7 @@ export class Rasterizer {
       rowStart: initial,
       topLeft: initial,
       current() {
+        return this.topLeft + stepToCenter;
         if (antialias) {
           return this.topLeft + stepToCenter;
         }
@@ -388,26 +457,25 @@ export class Rasterizer {
     return true;
   }
 
-  pxInside(w0, w1, w2) {
-    return !!this.pxWeight(w0, w1, w2);
-  }
-
-  pxWeight(w0, w1, w2) {
+  pxWeight(/* w0, */ w1, w2, area) {
     const antialias = this.ANTI_ALIASING;
     if (!antialias) {
-      return sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
+      return /* sampleInside(w0, 'topLeft') && */ sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft')
+        && (w1['topLeft'] + w2['topLeft']) <= area;
     }
-    const tl = sampleInside(w0, 'topLeft') && sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft');
+    const tl = /* sampleInside(w0, 'topLeft') && */ sampleInside(w1, 'topLeft') && sampleInside(w2, 'topLeft')
+      && (w1['topLeft'] + w2['topLeft']) <= area;
     // const tr = sampleInside(w0, 'topRight') && sampleInside(w1, 'topRight') && sampleInside(w2, 'topRight');
     // const bl = sampleInside(w0, 'bottomLeft') && sampleInside(w1, 'bottomLeft') && sampleInside(w2, 'bottomLeft');
-    const br = sampleInside(w0, 'bottomRight') && sampleInside(w1, 'bottomRight') && sampleInside(w2, 'bottomRight');
+    const br = /* sampleInside(w0, 'bottomRight') && */ sampleInside(w1, 'bottomRight') && sampleInside(w2, 'bottomRight')
+      && (w1['bottomRight'] + w2['bottomRight']) <= area;
     return tl + br;
 
     function sampleInside(sample, quadrant) {
       // return sample[quadrant] > 0 || (sample.topLeftEdge && sample[quadrant] == 0);
       if (antialias) {
-      //   return (sample[quadrant] > 0) || (sample[quadrant] == 0 && sample.topLeftEdge);
-      // }
+        return (sample[quadrant] > 0) || (sample[quadrant] == 0 && sample.topLeftEdge);
+      }
       return sample[quadrant] >= 0;
     }
   }

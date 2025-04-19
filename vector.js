@@ -1,7 +1,7 @@
 import { SquareMatrix } from './matrix.js';
 
 export class Vec3 {
-  /**@type{Vec3}*/#mag;
+  /**@type{number}*/#mag;
   /**@type{Vec3}*/#normalized;
   #x;
   #y;

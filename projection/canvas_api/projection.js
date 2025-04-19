@@ -101,27 +101,23 @@ function render() {
       }
       currentFacet.color = facet.color || shape.color;
 
-      if (shape.pointCloud) {
+      // draw if surface normal points toward the camera or object is transparent
+      const normal = facet.normal.transform(shape.rotation.multiply(camera.rotation));
+      let pointOnPlane = currentFacet[2];
+      if (normal.dot(pointOnPlane) < 0) {
+        currentFacet.facing = true;
+      }
+      if (currentFacet.facing || shape.opacity != 1) {
         frameFacets.push(currentFacet);
-      } else {
-        // draw if surface normal points toward the camera or object is transparent
-        const normal = facet.normal.transform(shape.rotation.multiply(camera.rotation));
-        let pointOnPlane = currentFacet[2];
-        if (normal.dot(pointOnPlane) < 0) {
-          currentFacet.facing = true;
-        }
-        if (currentFacet.facing || shape.opacity != 1) {
-          frameFacets.push(currentFacet);
-          if (currentFacet.color instanceof Vec3) {
-            const origin = light.origin.transform(cameraTransform);
-            const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
-            const attenuation = origin.sub(fCenter).magnitude * 0.05;
-            let lighting = normal.normalize().dot(origin.sub(fCenter).normalize());
-            lighting /= attenuation;
-            lighting *= 1 - light.ambient;
-            lighting += light.ambient;
-            currentFacet.color = currentFacet.color.scale(lighting);
-          }
+        if (currentFacet.color instanceof Vec3) {
+          const origin = light.origin.transform(cameraTransform);
+          const fCenter = currentFacet.reduce((t, p) => t = t.add(p)).scale(1 / currentFacet.length);
+          const attenuation = origin.sub(fCenter).magnitude * 0.05;
+          let lighting = normal.normalize().dot(origin.sub(fCenter).normalize());
+          lighting /= attenuation;
+          lighting *= 1 - light.ambient;
+          lighting += light.ambient;
+          currentFacet.color = currentFacet.color.scale(lighting);
         }
       }
     }
