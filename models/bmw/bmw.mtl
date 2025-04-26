@@ -1,0 +1,1038 @@
+newmtl Mesh1103mesh11030021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1103mesh11030021_diff.png
+map_Kd Mesh1103mesh11030021_diff.png
+map_d Mesh1103mesh11030021_diff.png
+
+newmtl 1233Mtl
+Material Color
+Ka 0.180144 0 0
+Kd 0.180144 0 0
+Ks 0.0713513 0 0
+
+d 1
+
+Ns 0
+
+newmtl Ln7Mtl
+Material Color
+Ka 0.180144 0 0
+Kd 0.180144 0 0
+Ks 0.0113032 0 0
+
+d 1
+
+Ns 0
+
+newmtl Ln5Mtl
+Material Color
+Ka 1 0 0
+Kd 1 0 0
+Ks 0.396078 0 0
+
+d 1
+
+Ns 0
+
+newmtl Gabar3Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Gabar3_diff.png
+map_Kd Gabar3_diff.png
+map_d Gabar3_diff.png
+
+newmtl Mesh1341mesh13410031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.603922
+
+Ns 0
+
+map_Ka Mesh1341mesh13410031_diff.png
+map_Kd Mesh1341mesh13410031_diff.png
+map_d Mesh1341mesh13410031_diff.png
+
+newmtl Mesh1123mesh11230021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1123mesh11230021_diff.png
+map_Kd Mesh1123mesh11230021_diff.png
+map_d Mesh1123mesh11230021_diff.png
+
+newmtl Mesh1125mesh11250021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1125mesh11250021_diff.png
+map_Kd Mesh1125mesh11250021_diff.png
+map_d Mesh1125mesh11250021_diff.png
+
+newmtl Ln14Mtl
+Material Color
+Ka 0.618686 0.618686 0.618686
+Kd 0.618686 0.618686 0.618686
+Ks 0.245048 0.245048 0.245048
+
+d 1
+
+Ns 0
+
+newmtl Mesh1136mesh11360031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1253mesh12530031_diff.png
+map_Kd Mesh1253mesh12530031_diff.png
+map_d Mesh1253mesh12530031_diff.png
+
+newmtl Mesh1346mesh13460031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1346mesh13460031_diff.png
+map_Kd Mesh1346mesh13460031_diff.png
+map_d Mesh1346mesh13460031_diff.png
+
+newmtl Mesh1140mesh11400031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1140mesh11400031_diff.png
+map_Kd Mesh1140mesh11400031_diff.png
+map_d Mesh1140mesh11400031_diff.png
+
+newmtl Mesh1141mesh11410031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1141mesh11410031_diff.png
+map_Kd Mesh1141mesh11410031_diff.png
+map_d Mesh1141mesh11410031_diff.png
+
+newmtl Mesh1156mesh11560031Mtl
+Material Color
+Ka 0.511398 0.334458 0.108711
+Kd 0.511398 0.334458 0.108711
+Ks 0.202554 0.132472 0.0430581
+
+d 1
+
+Ns 0
+
+newmtl Mesh1173mesh11730031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1173mesh11730031_diff.png
+map_Kd Mesh1173mesh11730031_diff.png
+map_d Mesh1173mesh11730031_diff.png
+
+newmtl Ln18Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Ln18_diff.png
+map_Kd Ln18_diff.png
+map_d Ln18_diff.png
+
+newmtl Mesh1179mesh11790031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1179mesh11790031_diff.png
+map_Kd Mesh1179mesh11790031_diff.png
+map_d Mesh1179mesh11790031_diff.png
+
+newmtl Mesh1181mesh11810031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1181mesh11810031_diff.png
+map_Kd Mesh1181mesh11810031_diff.png
+map_d Mesh1181mesh11810031_diff.png
+
+newmtl Mesh1183mesh11830031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.396078 0.396078 0.396078
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1189mesh11890031_diff.png
+map_Kd Mesh1189mesh11890031_diff.png
+map_d Mesh1189mesh11890031_diff.png
+
+newmtl Mesh1152mesh11520031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1152mesh11520031_diff.png
+map_Kd Mesh1152mesh11520031_diff.png
+map_d Mesh1152mesh11520031_diff.png
+
+newmtl Mesh1355mesh13550031Mtl
+Material Color
+Ka 0.00258583 0.00258583 0.00258583
+Kd 0.00258583 0.00258583 0.00258583
+Ks 0.00102419 0.00102419 0.00102419
+
+d 1
+
+Ns 0
+
+newmtl Mesh1189mesh11890031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1189mesh11890031_diff.png
+map_Kd Mesh1189mesh11890031_diff.png
+map_d Mesh1189mesh11890031_diff.png
+
+newmtl Mesh1261mesh12610031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1261mesh12610031_diff.png
+map_Kd Mesh1261mesh12610031_diff.png
+map_d Mesh1261mesh12610031_diff.png
+
+newmtl Mesh1334mesh13340031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1334mesh13340031_diff.png
+map_Kd Mesh1334mesh13340031_diff.png
+map_d Mesh1334mesh13340031_diff.png
+
+newmtl Mesh1263mesh12630031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.396078 0.396078 0.396078
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1149mesh11490031_diff.png
+map_Kd Mesh1149mesh11490031_diff.png
+map_d Mesh1149mesh11490031_diff.png
+
+newmtl Mesh1205mesh12050031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1205mesh12050031_diff.png
+map_Kd Mesh1205mesh12050031_diff.png
+map_d Mesh1205mesh12050031_diff.png
+
+newmtl Mesh1358mesh13580031Mtl
+Material Color
+Ka 0.373615 0.368591 0.383775
+Kd 0.373615 0.368591 0.383775
+Ks 0.147981 0.145991 0.152005
+
+d 0.25098
+
+Ns 0
+
+newmtl Mesh1208mesh12080031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1208mesh12080031_diff.png
+map_Kd Mesh1208mesh12080031_diff.png
+map_d Mesh1208mesh12080031_diff.png
+
+newmtl Mesh1339mesh13390031Mtl
+Material Color
+Ka 0.373615 0.368591 0.383775
+Kd 0.373615 0.368591 0.383775
+Ks 0.147981 0.145991 0.152005
+
+d 0.352941
+
+Ns 0
+
+newmtl Mesh1253mesh12530031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.952941
+
+Ns 0
+
+map_Ka Mesh1253mesh12530031_diff.png
+map_Kd Mesh1253mesh12530031_diff.png
+map_d Mesh1253mesh12530031_diff.png
+
+newmtl Mesh1343mesh13430031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.101961
+
+Ns 0
+
+map_Ka Mesh1318mesh13180031_diff.png
+map_Kd Mesh1318mesh13180031_diff.png
+map_d Mesh1318mesh13180031_diff.png
+
+newmtl Mesh1102mesh11020021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1265mesh12650031_diff.png
+map_Kd Mesh1265mesh12650031_diff.png
+map_d Mesh1265mesh12650031_diff.png
+
+newmtl Mesh1124mesh11240021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1124mesh11240021_diff.png
+map_Kd Mesh1124mesh11240021_diff.png
+map_d Mesh1124mesh11240021_diff.png
+
+newmtl Mesh1270mesh12700031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1270mesh12700031_diff.png
+map_Kd Mesh1270mesh12700031_diff.png
+map_d Mesh1270mesh12700031_diff.png
+
+newmtl Mesh1345mesh13450031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1345mesh13450031_diff.png
+map_Kd Mesh1345mesh13450031_diff.png
+map_d Mesh1345mesh13450031_diff.png
+
+newmtl Mesh1336mesh13360031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.25098
+
+Ns 0
+
+map_Ka Mesh1331mesh13310031_diff.png
+map_Kd Mesh1331mesh13310031_diff.png
+map_d Mesh1331mesh13310031_diff.png
+
+newmtl Mesh1254mesh12540031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1254mesh12540031_diff.png
+map_Kd Mesh1254mesh12540031_diff.png
+map_d Mesh1254mesh12540031_diff.png
+
+newmtl Gabar1Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Gabar1_diff.png
+map_Kd Gabar1_diff.png
+map_d Gabar1_diff.png
+
+newmtl Gabar2Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Gabar2_diff.png
+map_Kd Gabar2_diff.png
+map_d Gabar2_diff.png
+
+newmtl Mesh1338mesh13380031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.901961
+
+Ns 0
+
+map_Ka Mesh1330mesh13300031_diff.png
+map_Kd Mesh1330mesh13300031_diff.png
+map_d Mesh1330mesh13300031_diff.png
+
+newmtl Mesh1328mesh13280031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1328mesh13280031_diff.png
+map_Kd Mesh1328mesh13280031_diff.png
+map_d Mesh1328mesh13280031_diff.png
+
+newmtl Mesh1255mesh12550031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1255mesh12550031_diff.png
+map_Kd Mesh1255mesh12550031_diff.png
+map_d Mesh1255mesh12550031_diff.png
+
+newmtl Mesh1265mesh12650031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.396078 0.396078 0.396078
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1265mesh12650031_diff.png
+map_Kd Mesh1265mesh12650031_diff.png
+map_d Mesh1265mesh12650031_diff.png
+
+newmtl Mesh1333mesh13330031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1333mesh13330031_diff.png
+map_Kd Mesh1333mesh13330031_diff.png
+map_d Mesh1333mesh13330031_diff.png
+
+newmtl Mesh1269mesh12690031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1269mesh12690031_diff.png
+map_Kd Mesh1269mesh12690031_diff.png
+map_d Mesh1269mesh12690031_diff.png
+
+newmtl Mesh1216mesh12160031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1216mesh12160031_diff.png
+map_Kd Mesh1216mesh12160031_diff.png
+map_d Mesh1216mesh12160031_diff.png
+
+newmtl Mesh1272mesh12720031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1272mesh12720031_diff.png
+map_Kd Mesh1272mesh12720031_diff.png
+map_d Mesh1272mesh12720031_diff.png
+
+newmtl Mesh1302mesh13020031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1302mesh13020031_diff.png
+map_Kd Mesh1302mesh13020031_diff.png
+map_d Mesh1302mesh13020031_diff.png
+
+newmtl Mesh1304mesh13040031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.952941
+
+Ns 0
+
+map_Ka Mesh1332mesh13320031_diff.png
+map_Kd Mesh1332mesh13320031_diff.png
+map_d Mesh1332mesh13320031_diff.png
+
+newmtl Mesh1153mesh11530031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1153mesh11530031_diff.png
+map_Kd Mesh1153mesh11530031_diff.png
+map_d Mesh1153mesh11530031_diff.png
+
+newmtl Mesh1344mesh13440031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.952941
+
+Ns 0
+
+map_Ka Mesh1344mesh13440031_diff.png
+map_Kd Mesh1344mesh13440031_diff.png
+map_d Mesh1344mesh13440031_diff.png
+
+newmtl Mesh1330mesh13300031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1330mesh13300031_diff.png
+map_Kd Mesh1330mesh13300031_diff.png
+map_d Mesh1330mesh13300031_diff.png
+
+newmtl Mesh1318mesh13180031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.952941
+
+Ns 0
+
+map_Ka Mesh1318mesh13180031_diff.png
+map_Kd Mesh1318mesh13180031_diff.png
+map_d Mesh1318mesh13180031_diff.png
+
+newmtl Mesh1138mesh11380031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1138mesh11380031_diff.png
+map_Kd Mesh1138mesh11380031_diff.png
+map_d Mesh1138mesh11380031_diff.png
+
+newmtl Mesh1149mesh11490031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1149mesh11490031_diff.png
+map_Kd Mesh1149mesh11490031_diff.png
+map_d Mesh1149mesh11490031_diff.png
+
+newmtl Mesh1320mesh13200031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.603922
+
+Ns 0
+
+map_Ka Mesh1320mesh13200031_diff.png
+map_Kd Mesh1320mesh13200031_diff.png
+map_d Mesh1320mesh13200031_diff.png
+
+newmtl Mesh1142mesh11420031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1142mesh11420031_diff.png
+map_Kd Mesh1142mesh11420031_diff.png
+map_d Mesh1142mesh11420031_diff.png
+
+newmtl Mesh1169mesh11690031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1169mesh11690031_diff.png
+map_Kd Mesh1169mesh11690031_diff.png
+map_d Mesh1169mesh11690031_diff.png
+
+newmtl Mesh1321mesh13210031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1321mesh13210031_diff.png
+map_Kd Mesh1321mesh13210031_diff.png
+map_d Mesh1321mesh13210031_diff.png
+
+newmtl Mesh1273mesh12730031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1273mesh12730031_diff.png
+map_Kd Mesh1273mesh12730031_diff.png
+map_d Mesh1273mesh12730031_diff.png
+
+newmtl Mesh1323mesh13230031Mtl
+Material Color
+Ka 0.373615 0.368591 0.383775
+Kd 0.373615 0.368591 0.383775
+Ks 0.0234425 0.0231273 0.02408
+
+d 0.580392
+
+Ns 0
+
+newmtl Mesh1322mesh13220031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1322mesh13220031_diff.png
+map_Kd Mesh1322mesh13220031_diff.png
+map_d Mesh1322mesh13220031_diff.png
+
+newmtl Mesh1325mesh13250031Mtl
+Material Color
+Ka 0.373615 0.368591 0.383775
+Kd 0.373615 0.368591 0.383775
+Ks 0.373615 0.368591 0.383775
+
+d 0.152941
+
+Ns 0
+
+map_Ka Mesh1325mesh13250031_diff.png
+map_Kd Mesh1325mesh13250031_diff.png
+map_d Mesh1325mesh13250031_diff.png
+
+map_Bump Mesh1325mesh13250031_nmap.png
+
+map_Ns Mesh1325mesh13250031_spec.png
+
+newmtl Gp1Mtl
+Material Color
+Ka 0.212044 0.139022 0.0461488
+Kd 0.212044 0.139022 0.0461488
+Ks 0.0839862 0.0550638 0.0182786
+
+d 1
+
+Ns 0
+
+newmtl Mesh1326mesh13260031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1326mesh13260031_diff.png
+map_Kd Mesh1326mesh13260031_diff.png
+map_d Mesh1326mesh13260031_diff.png
+
+newmtl Mesh1332mesh13320031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1332mesh13320031_diff.png
+map_Kd Mesh1332mesh13320031_diff.png
+map_d Mesh1332mesh13320031_diff.png
+
+newmtl Paint1Mtl
+Material Color
+Ka 0.306635 0.254916 0.25084
+Kd 0.306635 0.254916 0.25084
+Ks 0.121451 0.100967 0.0993524
+
+d 1
+
+Ns 0
+
+newmtl Mesh1353mesh13530031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1320mesh13200031_diff.png
+map_Kd Mesh1320mesh13200031_diff.png
+map_d Mesh1320mesh13200031_diff.png
+
+newmtl Mesh1317mesh13170031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1317mesh13170031_diff.png
+map_Kd Mesh1317mesh13170031_diff.png
+map_d Mesh1317mesh13170031_diff.png
+
+newmtl Mesh1164mesh11640031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1164mesh11640031_diff.png
+map_Kd Mesh1164mesh11640031_diff.png
+map_d Mesh1164mesh11640031_diff.png
+
+newmtl Mesh1350mesh13500031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 0.952941
+
+Ns 0
+
+map_Ka Mesh1330mesh13300031_diff.png
+map_Kd Mesh1330mesh13300031_diff.png
+map_d Mesh1330mesh13300031_diff.png
+
+newmtl Mesh1271mesh12710031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1271mesh12710031_diff.png
+map_Kd Mesh1271mesh12710031_diff.png
+map_d Mesh1271mesh12710031_diff.png
+
+newmtl Mesh1331mesh13310031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1331mesh13310031_diff.png
+map_Kd Mesh1331mesh13310031_diff.png
+map_d Mesh1331mesh13310031_diff.png
+
+newmtl Mesh1104mesh11040021Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1104mesh11040021_diff.png
+map_Kd Mesh1104mesh11040021_diff.png
+map_d Mesh1104mesh11040021_diff.png
+
+newmtl Mesh1154mesh11540031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1154mesh11540031_diff.png
+map_Kd Mesh1154mesh11540031_diff.png
+map_d Mesh1154mesh11540031_diff.png
+
+newmtl Mesh1155mesh11550031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1155mesh11550031_diff.png
+map_Kd Mesh1155mesh11550031_diff.png
+map_d Mesh1155mesh11550031_diff.png
+
+newmtl Mesh1151mesh11510031Mtl
+Material Color
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.0627451 0.0627451 0.0627451
+
+d 1
+
+Ns 0
+
+map_Ka Mesh1151mesh11510031_diff.png
+map_Kd Mesh1151mesh11510031_diff.png
+map_d Mesh1151mesh11510031_diff.png
+

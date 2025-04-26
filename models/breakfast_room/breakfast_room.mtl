@@ -10,6 +10,8 @@ map_Kd picture3.jpg
 Ni 1.00
 Ks 0.00 0.00 0.00
 Ns 1.00
+
+
 newmtl breakfast_room:Black_Rubber
 illum 4
 Kd 0.64 0.64 0.64
@@ -18,63 +20,87 @@ Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
 Ns 96.08
+
+# teapot & decanter
 newmtl breakfast_room:Ceramic
 illum 4
-Kd 1.00 1.00 1.00
-Ka 1.00 1.00 1.00
+Kd 0.40 0.45 0.50
+Ka 0.2 0.2 0.2
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
 Ns 100.00
+
+# cups & plate inner
 newmtl breakfast_room:Ceramic_001
 illum 4
-Kd 0.50 0.50 0.50
+Kd 1.00 0.50 0.50
 Ka 0.00 0.00 0.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
 Ns 18.00
+
+# chair legs
 newmtl breakfast_room:Chrome
 illum 4
-Kd 0.00 0.00 0.00
-Ka 1.00 1.00 1.00
+Kd 0.6163 0.6163 0.6163
+Ka 0.2551 0.2551 0.2551
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.80 0.80 0.80
 Ns 100.00
+
 newmtl breakfast_room:Floor_Tiles
 illum 4
-Kd 0.00 0.00 0.00
+Kd 0.60 0.60 0.60
 Ka 1.00 1.00 1.00
 Tf 1.00 1.00 1.00
 map_Kd tiles.png
 Ni 1.00
 Ks 0.20 0.20 0.20
 Ns 30.00
+
+# light shrouds
 newmtl breakfast_room:Frosted_Glass
 illum 4
-Kd 0.90 0.08 0.01
-Ka 1.00 1.00 1.00
+Kd 0.70 0.08 0.01
+Ka 0.50 0.40 0.40
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.08 0.04 0.0
 Ns 20.00
+
+
 newmtl breakfast_room:Gold_Paint
 illum 4
-Kd 0.20 0.10 0.00
+Kd 0.40 0.20 0.00
 Ka 1.00 1.00 1.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.70 0.50 0.00
 Ns 10.00
+
+# plates - outer
 newmtl breakfast_room:Material_002
 illum 4
 Kd 0.50 0.50 0.50
-Ka 0.00 0.00 0.00
+Ka 0.10 0.20 0.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
 Ns 18.00
+
+
+newmtl Material_005.001
+illum 4
+Kd 0.55 0.57 0.55
+Ka 0.2 0.2 0.2
+Tf 1.00 1.00 1.00
+Ni 1.00
+Ks 0.93 0.93 0.93
+Ns 5.00
+
 newmtl breakfast_room:Material_005
 illum 4
 Kd 0.50 0.50 0.50
@@ -83,14 +109,17 @@ Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.50 0.50 0.50
 Ns 18.00
+
+# table base
 newmtl breakfast_room:Paint___Black_Satin
 illum 4
-Kd 0.00 0.00 0.00
-Ka 1.00 1.00 1.00
+Kd 0.50 0.50 0.50
+Ka 0.10 0.10 0.10
 Tf 1.00 1.00 1.00
 Ni 1.00
-Ks 0.10 0.10 0.10
-Ns 20.00
+Ks 0.50 0.50 0.50
+Ns 25.00
+
 newmtl breakfast_room:Paint___White_Gloss
 illum 4
 Kd 1.00 1.00 1.00
@@ -99,26 +128,33 @@ Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.10 0.10 0.10
 Ns 5.00
+
+# walls
 newmtl breakfast_room:Paint___White_Matt
 illum 4
 Kd 0.90 0.90 0.90
-Ka 1.00 1.00 1.00
+Ka 0.70 1.00 1.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.00 0.00 0.00
 Ns 1.00
+
+# table top
 newmtl breakfast_room:White_Marble
 illum 4
-Kd 0.70 0.70 0.70
+Kd 0.74 0.73 0.70
 Ka 1.00 1.00 1.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.20 0.20 0.20
 Ns 10.00
+map_Kd marble.jpg
+
+# chair seat
 newmtl breakfast_room:White_Plastic
 illum 4
-Kd 1.00 1.00 1.00
-Ka 1.00 1.00 1.00
+Kd 1.20 1.20 1.20
+Ka 0.72 0.72 0.72
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.20 0.20 0.20
