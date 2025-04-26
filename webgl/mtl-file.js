@@ -1,6 +1,9 @@
 export class MtlFile {
   constructor(/**@type{string}*/path) {
+    const pathParts = path.split('/');
     this.path = path;
+    this.name = pathParts.pop();
+    this.dir = pathParts.join('/');
   }
 
   async parse() {
@@ -19,8 +22,13 @@ export class MtlFile {
         materials[name] = currentMtl;
       } else {
         let [prop, ...values] = line.split(/\s+/);
-        if (['Ka', 'Kd', 'Ks', 'd', 'Tr', 'Ns', 'illum', 'map_Ka'].includes(prop)) {
-          if (prop != 'map_Ka') {
+        // 'texMode' is a custom addition
+        if (['Ka', 'Kd', 'Ks', 'd', 'Tr', 'Ns', 'illum', 'map_Ka', 'map_Kd', 'texMode'].includes(prop)) {
+          if (['map_Ka', 'map_Kd'].includes(prop)) {
+            values = values.filter(s => s.trim()).map(value => `${this.dir}/${value}`);
+          } else if (['texMode'].includes(prop)) {
+            values = values[0];
+          } else {
             values = values.map(Number);
           }
           currentMtl[prop] = values.length == 1 ? values[0] : values;
@@ -41,5 +49,6 @@ export class MtlFile {
 *   Ns: number,
 *   illum: number,
 *   map_Ka: string,
+*   map_Kd: string,
 *   name: string,
 * }} Material*/

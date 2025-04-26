@@ -1,6 +1,6 @@
-import { Geometry } from './geometry.js';
+import { ArrayGeometry } from './geometry.js';
 
-export class Floor extends Geometry {
+export class Floor extends ArrayGeometry {
   define() {
     const left = -0.5;
     const right = 0.5;
@@ -24,6 +24,15 @@ export class Floor extends Geometry {
         0, 1, 0,
         0, 1, 0,
         0, 1, 0,
+      ],
+      texCoords: [
+        1, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+        1, 1,
+        0, 0,
+        1, 0,
       ]
     }];
   }

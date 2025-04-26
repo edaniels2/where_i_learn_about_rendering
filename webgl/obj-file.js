@@ -1,12 +1,12 @@
-import { FacetGroup, Geometry } from './geometry.js';
+import { ArrayGeometry, ElementGeometry, FacetGroup } from './geometry.js';
 import { MtlFile } from './mtl-file.js';
 import './glmatrix.js';
 /**
  * @typedef {import('./mtl-file.js').Material} Material
  */
 
-export async function fromObjFile(/**@type{string}*/path, /**@type{ModelOptions}*/options) {
-  const Model = await new ObjFile(path).parse();
+export async function fromObjFile(/**@type{string}*/path, /**@type{ModelOptions}*/options, /**@type{boolean}*/drawElements) {
+  const Model = await new ObjFile(path, drawElements).parse();
   return new Model(options);
 }
 
@@ -14,19 +14,21 @@ export async function fromObjFile(/**@type{string}*/path, /**@type{ModelOptions}
 
 export class ObjFile {
 
-  constructor(/**@type{string}*/path) {
+  constructor(/**@type{string}*/path, /**@type{boolean}*/drawElements) {
     const pathParts = path.split('/');
     this.name = pathParts.pop();
     this.dir = pathParts.join('/');
     this.path = path;
+    this.drawElements = drawElements;
   }
 
   async parse() {
     const content = await (await fetch(this.path)).text();
     /**@type{FacetGroup[]}*/const facetGroups = [];
     /**@type{FacetGroup}*/let currentGroup;
-    /**@type{number[][]}*/let rawVertices = [];
-    /**@type{number[][]}*/let rawNormals = [];
+    /**@type{[number, number, number][]}*/let rawVertices = [];
+    /**@type{[number, number, number][]}*/let rawNormals = [];
+    /**@type{[number, number][]}*/let texCoords = [];
     /**@type{{normSum: [number, number, number], vNum: number}[]}*/let calcNormals = [];
     let /**@type{Object.<string, Material>}*/currentMtlFile;
     let /**@type{Material}*/currentMtl;
@@ -80,7 +82,8 @@ export class ObjFile {
         rawNormals.push(xyz);
       }
       if (line.startsWith('vt ')) {
-        // TODO: texture coordinates
+        const xy = line.split(/\s+/).slice(1).map(Number);
+        texCoords.push(xy);
       }
       if (line.startsWith('f ')) {
         if (!currentGroup) {
@@ -88,10 +91,6 @@ export class ObjFile {
           facetGroups.push(currentGroup);
         }
         currentGroup.material = currentMtl;
-        // if (currentMtl) {
-        //   // wip learning how to use color types properly
-        //   currentGroup.color = /* currentMtl.Ks || */ currentMtl.Kd || currentMtl.Ka;
-        // }
         const indexes = line.trim().split(/\s+/).slice(1).map(index => {
           const [vertex, texture, normal] = index.split('/');
           return { vertex, texture, normal };
@@ -125,14 +124,16 @@ export class ObjFile {
               // list (which can easily get into the tens [maybe hundreds] of thousands) and not
               // find a match, but avoiding it seems very much non-trivial. It only has to run
               // once and then we can store the result back in the file
-              const existing = calcNormals.find(o => o.vNum == parsedIndexes.vertex);
-              const calcNormObj = existing || { normSum: [0, 0, 0], vNum: parsedIndexes.vertex };
-              calcNormals.push(calcNormObj);
-              glMatrix.vec3.add(calcNormObj.normSum, calcNormObj.normSum, sfcNorm);
-              currentGroup.faceDefs.at(-1).at(positionIndex).normal = calcNormals.length;
+              // const existing = calcNormals.find(o => o.vNum == parsedIndexes.vertex);
+              // const calcNormObj = existing || { normSum: [0, 0, 0], vNum: parsedIndexes.vertex };
+              // calcNormals.push(calcNormObj);
+              // glMatrix.vec3.add(calcNormObj.normSum, calcNormObj.normSum, sfcNorm);
+              // currentGroup.faceDefs.at(-1).at(positionIndex).normal = calcNormals.length;
             }
             if (parsedIndexes.texture) {
-              // 
+              currentGroup.texCoords.push(...texCoords[parsedIndexes.texture - 1]);
+            } else {
+              currentGroup.texCoords.push(0, 0);
             }
           });
           indexes.splice(1, 1);
@@ -141,16 +142,17 @@ export class ObjFile {
     }
 
     if (calcNormals.length) {
+      // fire a ready event, allow to create/save a file object with the new data
       const blobParts = [];
       const encoder = new TextEncoder;
-      // const encoder = new TextEncoderStream;
-      // const writer = encoder.writable.getWriter();
       if (currentMtlFile) {
         blobParts.push(encoder.encode(`mtllib ${mtlPath}\n\n`));
       }
       rawVertices.forEach(v => {
-        // writer.write(`v ${v.join(' ')}\n`);
         blobParts.push(encoder.encode(`v ${v.join(' ')}\n`));
+      });
+      texCoords.forEach(vt => {
+        blobParts.push(encoder.encode(`vt ${vt.join(' ')}\n`));
       });
       let offset = 0;
       for (let i = 0; i < facetGroups.length; i++) {
@@ -163,33 +165,25 @@ export class ObjFile {
           facetGroups[i].normals[j] = normObj.normSum[0];
           facetGroups[i].normals[j + 1] = normObj.normSum[1];
           facetGroups[i].normals[j + 2] = normObj.normSum[2];
-          // writer.write(`vn ${normObj.normSum.join(' ')}\n`);
           blobParts.push(encoder.encode(`vn ${normObj.normSum.join(' ')}\n`));
         }
         offset += facetGroups[i].vertices.length / 3;
       }
-      // fire a ready event, allow to create/save a file object with the new data
       for (const group of facetGroups) {
-        // writer.write(`g ${group.name}\n`);
         blobParts.push(encoder.encode(`g ${group.name}\n`));
         if (group.color) {
-          // writer.write(`c ${group.color.join(' ')}\n`);
           blobParts.push(encoder.encode(`c ${group.color.join(' ')}\n`));
         }
         if (group.material) {
-          // writer.write(`usemtl ${group.material.name}\n`);
           blobParts.push(encoder.encode(`usemtl ${group.material.name}\n`));
         }
         for (const f of group.faceDefs) {
           blobParts.push(encoder.encode('f '));
           for (let i = 0; i < f.length; i++) {
-            // writer.write(`f ${f.vertex}`);
             blobParts.push(encoder.encode(f[i].vertex));
             if (f[i].texture || f[i].normal) {
-              // writer.write(`/${f[i].texture || ''}`);
               blobParts.push(encoder.encode(`/${f[i].texture || ''}`));
               if (f[i].normal) {
-                // writer.write(`/${f[i].normal}`);
                 blobParts.push(encoder.encode(`/${f[i].normal}`));
               }
             }
@@ -197,14 +191,9 @@ export class ObjFile {
               blobParts.push(encoder.encode(' '));
             }
           }
-          // writer.write('\n');
           blobParts.push(encoder.encode('\n'));
         }
       }
-      // let data = [];
-      // for await (const chunk of encoder.readable) {
-      //   data.push(chunk);
-      // }
       const blob = new Blob(blobParts, {type: 'text/plain'});
       const a = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -214,7 +203,27 @@ export class ObjFile {
       URL.revokeObjectURL(url);
     }
 
-    return class extends Geometry {
+    if (this.drawElements) {
+      return class extends ElementGeometry {
+        define() {
+          this.vertices = rawVertices.flat();
+          this.norms = rawNormals.flat();
+          let offset = 0;
+          this.groups = facetGroups.map(group => {
+            const start = offset;
+            const length = group.faceDefs.flat().length;
+            const material = group.material;
+            offset += length;
+            return { start, length, material };
+          });
+          this.vIndexes = facetGroups.flatMap(g => g.faceDefs.flatMap(def => def.map(indexes => parseInt(indexes.vertex, 10) - 1)));
+          this.nIndexes = facetGroups.flatMap(g => g.faceDefs.flatMap(def => def.map(indexes => parseInt(indexes.normal, 10))));
+          this.tIndexes = facetGroups.flatMap(g => g.faceDefs.flatMap(def => def.map(indexes => parseInt(indexes.texture, 10))));
+        }
+      }
+    }
+
+    return class extends ArrayGeometry {
       define() {
         this.groups = facetGroups.filter(g => g.vertices.length);
       }
