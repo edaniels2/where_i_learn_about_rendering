@@ -1,0 +1,72 @@
+precision mediump float;
+
+attribute vec3 aVertex;
+attribute vec3 aNormal;
+attribute vec2 aTexCoord;
+
+uniform vec3 uKa;
+uniform vec3 uKd;
+uniform vec3 uLdd;
+uniform float uLdm;
+uniform float uLa;
+uniform mat4 uMatMV;
+uniform mat4 uMatP;
+uniform mat4 uMatR;
+
+// wip point lighting
+uniform vec3 uLp0;
+uniform vec3 uLp0color;
+uniform float uLp0b;
+uniform vec3 uLp1;
+uniform vec3 uLp1color;
+uniform float uLp1b;
+uniform float uPointLightDecay;
+
+varying vec3 vLp0refl;
+varying vec3 vLp1refl;
+
+varying vec4 vKad;
+varying vec3 vLrefl;
+varying vec3 vPosition;
+varying vec2 vTexCoord;
+varying float vpl0m;
+varying float vpl1m;
+
+void main() {
+  vec3 vn = vec3(uMatR * vec4(aNormal, 1.0));
+  float lDotNorm = dot(vn, uLdd);
+  float directionalLightComponent = max(0.0, -lDotNorm * uLdm);
+
+  // spatial varyings
+  vPosition = vec3(uMatMV * vec4(aVertex, 1.0));
+  vLrefl = uLdd - 2.0 * lDotNorm * vn;
+  vTexCoord = aTexCoord;
+  gl_Position = uMatP * vec4(vPosition, 1.0);
+
+  // colorspace varyings
+// separate shader for each number of point lights? loops and branching needs to be avoided in shaders
+  vec3 pl0 = vPosition - uLp0;
+  float pl0dSq = dot(pl0, pl0);
+  pl0 = normalize(pl0);
+  vpl0m = uLp0b / (uPointLightDecay * pl0dSq);
+  float pl0DotNorm = dot(vn, pl0);
+  float pl0c = max(0.0, -pl0DotNorm * vpl0m);
+  vLp0refl = pl0 - 2.0 * pl0DotNorm * vn;
+
+  vec3 pl1 = vPosition - uLp1;
+  float pl1dSq = dot(pl1, pl1);
+  pl1 = normalize(pl1);
+  vpl1m = uLp1b / (uPointLightDecay * pl1dSq);
+  float pl1DotNorm = dot(vn, pl1);
+  float pl1c = max(0.0, -pl1DotNorm * vpl1m);
+  vLp1refl = pl1 - 2.0 * pl1DotNorm * vn;
+
+  vKad = vec4(
+    uKa * uLa // ambient
+    + directionalLightComponent * uKd // directional/distant (should probably add a color coefficient)
+    + pl0c * uLp0color * uKd // point 0 (support more lights, possibly as separate shaders)
+    + pl1c * uLp1color * uKd // point 1
+    , 1.0
+  );
+  // vKad = vec4(uKa * uLa + uKd * directionalLightComponent, 1.0);
+}

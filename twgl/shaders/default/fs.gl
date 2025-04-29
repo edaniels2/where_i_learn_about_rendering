@@ -1,0 +1,28 @@
+precision mediump float;
+
+uniform sampler2D uTexture;
+uniform vec3 uKs;
+uniform float uLdm;
+uniform float uNs;
+
+varying vec4 vKad;
+varying vec3 vLrefl;
+varying vec3 vPosition;
+varying vec2 vTexCoord;
+
+varying vec3 vLp0refl;
+varying vec3 vLp1refl;
+varying float vpl0m;
+varying float vpl1m;
+
+void main() {
+  vec4 kTex = texture2D(uTexture, vTexCoord);
+
+  // probably add a specular coefficient uniform or something
+  float spec = max(0.0, pow(dot(normalize(vLrefl), -normalize(vPosition)), uNs)) * uLdm;
+
+  float p0spec = max(0.0, pow(dot(normalize(vLp0refl), -normalize(vPosition)), uNs)) * vpl0m;
+  float p1spec = max(0.0, pow(dot(normalize(vLp1refl), -normalize(vPosition)), uNs)) * vpl1m;
+
+  gl_FragColor = vKad * kTex + vec4(uKs * (spec + p0spec + p1spec), 1.0);
+}

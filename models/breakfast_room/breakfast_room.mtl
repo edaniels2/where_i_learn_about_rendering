@@ -3,8 +3,8 @@
 
 newmtl breakfast_room:Artwork
 illum 4
-Kd 0.00 0.00 0.00
-Ka 1.00 1.00 1.00
+Kd 0.40 0.40 0.40
+Ka 0.60 0.60 0.60
 Tf 1.00 1.00 1.00
 map_Kd picture3.jpg
 Ni 1.00
@@ -132,8 +132,8 @@ Ns 5.00
 # walls
 newmtl breakfast_room:Paint___White_Matt
 illum 4
-Kd 0.90 0.90 0.90
-Ka 0.70 1.00 1.00
+Kd 0.97 1.00 0.94
+Ka 0.97 1.00 0.94
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.00 0.00 0.00
@@ -142,8 +142,8 @@ Ns 1.00
 # table top
 newmtl breakfast_room:White_Marble
 illum 4
-Kd 0.74 0.73 0.70
-Ka 1.00 1.00 1.00
+Ka 0.74 0.73 0.70
+Kd 1.00 1.00 1.00
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.20 0.20 0.20

@@ -46,6 +46,7 @@ export class FacetGroup {
     this.name = name;
     this.material = material;
     this.texCoords = [];
+    /**@type{BufferInfo}*/this.bufferInfo = null;
     /**@type{{vertex: number, texture: number, normal: number}[][]}*/this.faceDefs = [];
   }
 }
@@ -215,4 +216,15 @@ export class ArrayGeometry extends Geometry {
  *  length: number,
  *  material: Material,
  * }} ElementGroup
+ */
+
+/**
+ * @typedef {{
+    numElements: number,
+    indices: WebGLBuffer,
+    attribs: Object.<string, {
+      buffer: WebGLBuffer,
+      numComponents: number,
+    }>
+  }} BufferInfo
  */
