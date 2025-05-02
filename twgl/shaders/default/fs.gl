@@ -1,6 +1,12 @@
 precision mediump float;
 
 uniform sampler2D uTexture;
+uniform sampler2D uShadowMap0;
+uniform sampler2D uShadowMap1;
+uniform float uOutsideShadowMapCoef;
+uniform float uShadowCoef;
+uniform float uShadowBias;
+uniform float uOpacity;
 uniform vec3 uKs;
 uniform float uLdm;
 uniform float uNs;
@@ -14,15 +20,30 @@ varying vec3 vLp0refl;
 varying vec3 vLp1refl;
 varying float vpl0m;
 varying float vpl1m;
+varying vec4 vProjectedShadow0;
+varying vec4 vProjectedShadow1;
 
 void main() {
+  // TODO handle the case when no point lights are defined (probably just use a different shader)
+  vec3 uv = vProjectedShadow0.xyz / vProjectedShadow0.w;
+  float testDepth = uv.z - uShadowBias; // bias to prevent shadows showing up on lit surfaces (make this configurable)
+  bool inside =  uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+  float shadowDepth = texture2D(uShadowMap0, uv.xy).r;
+  float shadowCoef0 = inside ? (shadowDepth <= testDepth ? uShadowCoef : 1.0) : uOutsideShadowMapCoef;
+
+  uv = vProjectedShadow1.xyz / vProjectedShadow1.w;
+  testDepth = uv.z - uShadowBias; // bias to prevent shadows showing up on lit surfaces (make this configurable)
+  inside =  uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+  shadowDepth = texture2D(uShadowMap1, uv.xy).r;
+  float shadowCoef1 = inside ? (shadowDepth <= testDepth ? uShadowCoef : 1.0) : uOutsideShadowMapCoef;
+
   vec4 kTex = texture2D(uTexture, vTexCoord);
 
   // probably add a specular coefficient uniform or something
   float spec = max(0.0, pow(dot(normalize(vLrefl), -normalize(vPosition)), uNs)) * uLdm;
-
   float p0spec = max(0.0, pow(dot(normalize(vLp0refl), -normalize(vPosition)), uNs)) * vpl0m;
   float p1spec = max(0.0, pow(dot(normalize(vLp1refl), -normalize(vPosition)), uNs)) * vpl1m;
 
-  gl_FragColor = vKad * kTex + vec4(uKs * (spec + p0spec + p1spec), 1.0);
+// opacity wip
+  gl_FragColor = vec4((vec3(vKad * kTex) + uKs * (spec + p0spec + p1spec)) * shadowCoef0 * shadowCoef1, uOpacity);
 }

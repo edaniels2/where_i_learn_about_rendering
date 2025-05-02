@@ -1,0 +1,11 @@
+attribute vec3 aVertex;
+
+uniform mat4 uMatMV;
+uniform mat4 uMatP;
+
+varying float z;
+
+void main() {
+  gl_Position = uMatP * uMatMV * vec4(aVertex, 1.0);
+  z = gl_Position.z;
+}

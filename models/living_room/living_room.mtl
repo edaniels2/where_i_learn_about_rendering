@@ -150,12 +150,12 @@ Kd 0.8 0.79136 0.8
 Ns 256
 d 1
 illum 2
-Ka 0 0 0
+Ka 0.8 0.79136 0.8
 Ks 0 0 0
 map_Kd textures/shade-stripes.jpg
 
 newmtl LargePicture
-Kd 0 0 0
+Kd 0.85 0.85 0.85
 Ns 1000
 Ks 0.1 0.1 0.1
 d 1

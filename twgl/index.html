@@ -7,21 +7,39 @@
   <style>
     body {
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      user-select: none;
+      touch-action: pinch-zoom;
     }
     canvas {
+      margin: auto;
+      pointer-events: all;
       width: 100%;
       height: 100%;
+    }
+    div.abs {
+      position: absolute;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      margin: 0;
     }
   </style>
   <script type="module">
     import { Renderer } from './renderer.js';
     import { Scenes } from './scenes.js';
 
-    const renderer = new Renderer(Scenes.BreakfastRoom());
+    const renderer = new Renderer(Scenes.LivingRoom());
+    // const renderer = new Renderer(Scenes.BreakfastRoom());
     renderer.start();
   </script>
 </head>
 <body>
-  <canvas></canvas>
+  <div class="abs">
+    <canvas></canvas>
+  </div>
 </body>
 </html>

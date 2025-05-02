@@ -12,8 +12,10 @@ uniform float uLa;
 uniform mat4 uMatMV;
 uniform mat4 uMatP;
 uniform mat4 uMatR;
+uniform mat4 uMatST0;
+uniform mat4 uMatST1;
 
-// wip point lighting
+// point lighting
 uniform vec3 uLp0;
 uniform vec3 uLp0color;
 uniform float uLp0b;
@@ -31,6 +33,8 @@ varying vec3 vPosition;
 varying vec2 vTexCoord;
 varying float vpl0m;
 varying float vpl1m;
+varying vec4 vProjectedShadow0;
+varying vec4 vProjectedShadow1;
 
 void main() {
   vec3 vn = vec3(uMatR * vec4(aNormal, 1.0));
@@ -39,6 +43,8 @@ void main() {
 
   // spatial varyings
   vPosition = vec3(uMatMV * vec4(aVertex, 1.0));
+  vProjectedShadow0 = uMatST0 * vec4(vPosition, 1.0);
+  vProjectedShadow1 = uMatST1 * vec4(vPosition, 1.0);
   vLrefl = uLdd - 2.0 * lDotNorm * vn;
   vTexCoord = aTexCoord;
   gl_Position = uMatP * vec4(vPosition, 1.0);
@@ -64,9 +70,8 @@ void main() {
   vKad = vec4(
     uKa * uLa // ambient
     + directionalLightComponent * uKd // directional/distant (should probably add a color coefficient)
-    + pl0c * uLp0color * uKd // point 0 (support more lights, possibly as separate shaders)
+    + pl0c * uLp0color * uKd // point 0
     + pl1c * uLp1color * uKd // point 1
     , 1.0
   );
-  // vKad = vec4(uKa * uLa + uKd * directionalLightComponent, 1.0);
 }
