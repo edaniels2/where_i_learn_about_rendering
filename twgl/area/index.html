@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TWGL example</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      user-select: none;
+      touch-action: pinch-zoom;
+    }
+    canvas {
+      margin: auto;
+      pointer-events: all;
+      width: 100%;
+      height: 100%;
+    }
+    div.abs {
+      position: absolute;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      margin: 0;
+    }
+  </style>
+  <script type="module">
+    import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
+    import { Renderer } from '../renderer.js';
+    import { Scenes, Misc } from '../scenes.js';
+
+    const renderer = new Renderer(Misc.testScene());
+
+    const gui = new GUI({title: 'Lighting Controls'});
+    const lights = renderer.areaLights || [];
+    const globalGroup = gui.addFolder('Global');
+    globalGroup.add(renderer, 'antiWashout').onChange(() => renderer.controls.changed = true);
+    globalGroup.add(renderer, 'ambient').step(0.01).onChange(() => renderer.controls.changed = true);
+    for (let i = 0; i < lights.length; i++) {
+      const light = lights[i];
+      const name = light.name || 'Light ' + i;
+      const group = gui.addFolder(name);
+      if (!Object.hasOwn(light, 'on')) {
+        light.on = true;
+      }
+      group.add(light, 'on')?.onChange(() => renderer.controls.changed = true);
+      group.add(light, 'intensity').onChange(() => renderer.controls.changed = true);
+    }
+    renderer.start();
+  </script>
+</head>
+<body>
+  <div class="abs">
+    <canvas></canvas>
+  </div>
+</body>
+</html>

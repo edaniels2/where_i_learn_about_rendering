@@ -1,0 +1,11 @@
+precision mediump float;
+
+attribute vec3 aVertex;
+
+uniform mat4 uMatMV;
+uniform mat4 uMatP;
+
+void main() {
+  vec3 vPosition = vec3(uMatMV * vec4(aVertex, 1.0));
+  gl_Position = uMatP * vec4(vPosition, 1.0);
+}

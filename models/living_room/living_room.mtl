@@ -71,7 +71,7 @@ newmtl CeilingLampshade
 Kd 1 1 1
 Ka 0 0 0
 Ns 8000
-d 0.5
+d 0.6
 illum 2
 Ks 0 0 0
 map_Kd textures/Shade-paper.jpg
@@ -146,11 +146,11 @@ Ka 0 0 0
 Ks 0.1 0.1 0.1
 
 newmtl LampshaderOuter
-Kd 0.8 0.79136 0.8
+Kd 0.4 0.59136 0.8
 Ns 256
-d 1
+d 0.96
 illum 2
-Ka 0.8 0.79136 0.8
+Ka 0.3 0.39136 0.6
 Ks 0 0 0
 map_Kd textures/shade-stripes.jpg
 
@@ -162,7 +162,7 @@ d 1
 illum 2
 Ka 0 0 0
 Ks 0 0 0
-map_Kd textures/pic5wide.jpg
+map_Kd textures/IMG_1075.jpg
 
 newmtl LeftLight
 Ke 5 5 5
@@ -215,7 +215,7 @@ d 1
 illum 2
 Ka 0 0 0
 Ks 0.2 0.2 0.2
-map_Kd textures/photo1.jpg
+map_Kd textures/IMG_5001.jpeg
 
 newmtl Picture2
 Kd 1 1 1
@@ -224,7 +224,7 @@ d 1
 illum 2
 Ka 0 0 0
 Ks 0.2 0.2 0.2
-map_Kd textures/photo3.jpg
+map_Kd textures/IMG_3496.jpg
 
 newmtl Picture4
 Kd 1 1 1
@@ -233,7 +233,7 @@ d 1
 illum 2
 Ka 0 0 0
 Ks 0.2 0.2 0.2
-map_Kd textures/photo2.jpg
+map_Kd textures/IMG_0151.jpg
 
 newmtl Picture5
 Kd 1 1 1
@@ -242,7 +242,7 @@ d 1
 illum 2
 Ka 0 0 0
 Ks 0.2 0.2 0.2
-map_Kd textures/photo4.jpg
+map_Kd textures/IMG_0778.jpg
 
 newmtl RadiatorKnobOuter
 Kd 0.8 0.01 0.01
@@ -353,6 +353,14 @@ newmtl WhitePaint
 Kd 0.95 0.95 0.95
 Ns 3
 d 1
+illum 2
+Ka 0 0 0
+Ks 0.04 0.04 0.04
+
+newmtl LampshadeInner
+Kd 0.95 0.95 0.95
+Ns 3
+d 0.2
 illum 2
 Ka 0 0 0
 Ks 0.04 0.04 0.04

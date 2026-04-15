@@ -9,11 +9,23 @@ uniform vec3 uKd;
 uniform vec3 uLdd;
 uniform float uLdm;
 uniform float uLa;
+uniform float uOmniDirectional;
+uniform float uOpacity;
 uniform mat4 uMatMV;
 uniform mat4 uMatP;
 uniform mat4 uMatR;
-uniform mat4 uMatST0;
-uniform mat4 uMatST1;
+uniform mat4 uMatST0up;
+uniform mat4 uMatST0dn;
+uniform mat4 uMatST0north;
+uniform mat4 uMatST0south;
+uniform mat4 uMatST0east;
+uniform mat4 uMatST0west;
+uniform mat4 uMatST1up;
+uniform mat4 uMatST1dn;
+uniform mat4 uMatST1north;
+uniform mat4 uMatST1south;
+uniform mat4 uMatST1east;
+uniform mat4 uMatST1west;
 
 // point lighting
 uniform vec3 uLp0;
@@ -23,55 +35,85 @@ uniform vec3 uLp1;
 uniform vec3 uLp1color;
 uniform float uLp1b;
 uniform float uPointLightDecay;
+uniform float uAntiWashout;
 
+varying vec2 rngSeed;
 varying vec3 vLp0refl;
 varying vec3 vLp1refl;
 
-varying vec4 vKad;
+varying vec3 vKad;
+varying vec3 vKp0;
+varying vec3 vKp1;
 varying vec3 vLrefl;
 varying vec3 vPosition;
 varying vec2 vTexCoord;
 varying float vpl0m;
 varying float vpl1m;
-varying vec4 vProjectedShadow0;
-varying vec4 vProjectedShadow1;
+varying vec4 vProjectedShadow0up;
+varying vec4 vProjectedShadow0dn;
+varying vec4 vProjectedShadow0north;
+varying vec4 vProjectedShadow0south;
+varying vec4 vProjectedShadow0east;
+varying vec4 vProjectedShadow0west;
+varying vec4 vProjectedShadow1up;
+varying vec4 vProjectedShadow1dn;
+varying vec4 vProjectedShadow1north;
+varying vec4 vProjectedShadow1south;
+varying vec4 vProjectedShadow1east;
+varying vec4 vProjectedShadow1west;
 
 void main() {
   vec3 vn = vec3(uMatR * vec4(aNormal, 1.0));
   float lDotNorm = dot(vn, uLdd);
-  float directionalLightComponent = max(0.0, -lDotNorm * uLdm);
+  float directionalLightComponent = max(0.0, -lDotNorm * uLdm) + uOmniDirectional;
 
   // spatial varyings
   vPosition = vec3(uMatMV * vec4(aVertex, 1.0));
-  vProjectedShadow0 = uMatST0 * vec4(vPosition, 1.0);
-  vProjectedShadow1 = uMatST1 * vec4(vPosition, 1.0);
+  vProjectedShadow0up = uMatST0up * vec4(vPosition, 1.0);
+  vProjectedShadow0dn = uMatST0dn * vec4(vPosition, 1.0);
+  vProjectedShadow0north = uMatST0north * vec4(vPosition, 1.0);
+  vProjectedShadow0south = uMatST0south * vec4(vPosition, 1.0);
+  vProjectedShadow0east = uMatST0east * vec4(vPosition, 1.0);
+  vProjectedShadow0west = uMatST0west * vec4(vPosition, 1.0);
+  vProjectedShadow1up = uMatST1up * vec4(vPosition, 1.0);
+  vProjectedShadow1dn = uMatST1dn * vec4(vPosition, 1.0);
+  vProjectedShadow1north = uMatST1north * vec4(vPosition, 1.0);
+  vProjectedShadow1south = uMatST1south * vec4(vPosition, 1.0);
+  vProjectedShadow1east = uMatST1east * vec4(vPosition, 1.0);
+  vProjectedShadow1west = uMatST1west * vec4(vPosition, 1.0);
   vLrefl = uLdd - 2.0 * lDotNorm * vn;
   vTexCoord = aTexCoord;
   gl_Position = uMatP * vec4(vPosition, 1.0);
 
   // colorspace varyings
-// separate shader for each number of point lights? loops and branching needs to be avoided in shaders
+// separate shader for each number of point lights? loops and branching are best avoided in shaders
   vec3 pl0 = vPosition - uLp0;
-  float pl0dSq = dot(pl0, pl0);
+  float pl0dMag = dot(pl0, pl0);
   pl0 = normalize(pl0);
-  vpl0m = uLp0b / (uPointLightDecay * pl0dSq);
+  vpl0m = uLp0b / (uPointLightDecay * max(uAntiWashout, pow(pl0dMag, 2.0)));
   float pl0DotNorm = dot(vn, pl0);
+  if (uOpacity < 1.0 && pl0DotNorm > 0.0) {
+    pl0DotNorm = -pl0DotNorm * (1.0 - uOpacity);
+  }
   float pl0c = max(0.0, -pl0DotNorm * vpl0m);
   vLp0refl = pl0 - 2.0 * pl0DotNorm * vn;
 
   vec3 pl1 = vPosition - uLp1;
-  float pl1dSq = dot(pl1, pl1);
+  float pl1dMag = dot(pl1, pl1);
   pl1 = normalize(pl1);
-  vpl1m = uLp1b / (uPointLightDecay * pl1dSq);
+  vpl1m = uLp1b / (uPointLightDecay * max(uAntiWashout, pow(pl1dMag, 2.0)));
   float pl1DotNorm = dot(vn, pl1);
+  if (uOpacity < 1.0 && pl1DotNorm > 0.0) {
+    pl1DotNorm = -pl1DotNorm * (1.0 - uOpacity);
+  }
   float pl1c = max(0.0, -pl1DotNorm * vpl1m);
   vLp1refl = pl1 - 2.0 * pl1DotNorm * vn;
 
-  vKad = vec4(
-    uKa * uLa // ambient
-    + directionalLightComponent * uKd // directional/distant (should probably add a color coefficient)
-    + pl0c * uLp0color * uKd // point 0
-    + pl1c * uLp1color * uKd // point 1
-    , 1.0
-  );
+  // combined color contribution from ambient and directional light (TODO maybe?: shadow map directional light)
+  vKad = uKa * uLa + directionalLightComponent * uKd;
+  // point lights
+  vKp0 = vec3(pl0c * uLp0color * uKd);
+  vKp1 = vec3(pl1c * uLp1color * uKd);
+
+  rngSeed = aVertex.xy;
 }

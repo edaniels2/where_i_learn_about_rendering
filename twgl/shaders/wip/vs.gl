@@ -1,0 +1,29 @@
+precision mediump float;
+
+attribute vec3 aVertex;
+attribute vec3 aNormal;
+attribute vec2 aTexCoord;
+
+uniform vec3 uKa;
+uniform vec3 uKd;
+uniform vec3 uLdd;
+uniform float uLdm;
+uniform float uLa;
+uniform float uOpacity;
+uniform mat4 uMatMV;
+uniform mat4 uMatP;
+uniform mat4 uMatR;
+
+varying vec2 rngSeed;
+
+varying vec3 vn;
+varying vec3 vPosition;
+varying vec2 vTexCoord;
+
+void main() {
+  rngSeed = aVertex.xy;
+  vn = vec3(uMatR * vec4(aNormal, 1.0));
+  vPosition = vec3(uMatMV * vec4(aVertex, 1.0));
+  vTexCoord = aTexCoord;
+  gl_Position = uMatP * vec4(vPosition, 1.0);
+}

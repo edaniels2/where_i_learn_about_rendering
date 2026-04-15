@@ -7,6 +7,7 @@ export class Geometry {
   constructor(options) {
     this.matrix = glMatrix.mat4.create();
     this.color = options?.color;
+    this.contrast = options?.contrast;
     this.define();
     if (this.groups.some(g => !g.normals.length)) {
       this.calculateNormals();
@@ -196,17 +197,17 @@ export class ArrayGeometry extends Geometry {
         }
       });
     }
-    if (options?.contrast) {
-      this.groups.forEach(g => {
-        for (let i = 0; i < g.normals.length; i += 3) {
-          const n = g.normals.slice(i, i + 3);
-          glMatrix.vec3.scale(n, n, options.contrast);
-          g.normals[i] = n[0];
-          g.normals[i + 1] = n[1];
-          g.normals[i + 2] = n[2];
-        }
-      })
-    }
+    // if (options?.contrast) {
+    //   this.groups.forEach(g => {
+    //     for (let i = 0; i < g.normals.length; i += 3) {
+    //       const n = g.normals.slice(i, i + 3);
+    //       glMatrix.vec3.scale(n, n, options.contrast);
+    //       g.normals[i] = n[0];
+    //       g.normals[i + 1] = n[1];
+    //       g.normals[i + 2] = n[2];
+    //     }
+    //   })
+    // }
   }
 }
 

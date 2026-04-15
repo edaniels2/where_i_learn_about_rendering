@@ -1,0 +1,185 @@
+precision mediump float;
+#define far 1e6
+#define numSpheres <% numSpheres %>
+#define numVertices <% numVertices %>
+#define rayDepth 3
+#define numRays 3
+
+// const int numTriangles = numVertices / 9;
+
+struct Sphere {
+  vec3 position;
+  float radius;
+  vec4 color;
+  vec4 emitColor;
+  float emitIntensity;
+};
+
+struct Triangle {
+  vec3 A;
+  vec3 B;
+  vec3 C;
+  vec3 normA;
+  vec3 normB;
+  vec3 normC;
+  vec4 color;
+};
+
+struct Ray {
+  vec3 origin;
+  vec3 direction;
+  vec4 color;
+  // float nearest;
+};
+
+struct HitInfo {
+  bool hit;
+  float dist;
+  vec3 hitPoint;
+  vec3 normal;
+  vec4 color;
+  vec4 emitColor;
+  float emitIntensity;
+};
+
+varying vec2 px;
+uniform vec2 rngSeed;
+uniform vec3 viewParams;
+uniform vec3 ndcParams;
+uniform mat4 camLocalToWorldMat;
+uniform Sphere spheres[numSpheres];
+uniform float vertices[numVertices];
+uniform float normals[numVertices];
+
+vec2 rngState;
+// try to find a better rng
+vec3 rand() {
+	vec3 p3 = fract(vec3(rngState.xyx) * vec3(.1031, .1030, .0973));
+  p3 += dot(p3, p3.yxz+33.33);
+  vec3 result = fract((p3.xxy+p3.yzz)*p3.zyx);
+  rngState += result.zx * 123.321;
+  return result;
+}
+
+vec3 randNormalDistrubution() {
+  vec3 a = 2.0 * 3.1415926 * rand();
+  vec3 b = sqrt(-2.0 * log(rand()));
+  return b * cos(a);
+}
+
+vec3 randHemisphere(vec3 normal) {
+  vec3 direction = normalize(randNormalDistrubution());
+  return direction * sign(dot(normal, direction));
+}
+
+HitInfo raySphereIntersection(Ray ray, Sphere sphere) {
+  HitInfo hitInfo = HitInfo(false, far, vec3(0.0), vec3(0.0), vec4(0.0), vec4(0.0), 0.0);
+  vec3 rayOriginRelativeSphere = ray.origin - sphere.position;
+  // follows from (ray.origin + ray.direction * distance)^2 = sphere.radius^2
+  // solving for distance yields a quadratic equation with coefficients:
+  float a = 1.0;// dot(ray.dir, ray.dir); // is always 1 assuming normalized ray direction
+  float b = 2.0 * dot(rayOriginRelativeSphere, ray.direction);
+  float c = dot(rayOriginRelativeSphere, rayOriginRelativeSphere) - sphere.radius * sphere.radius;
+  // quadratic discriminant (the part under the sqRt)
+  float discriminant = b * b - 4.0 * a * c;
+  if (discriminant >= 0.0) {
+    // quad equation only has a real solution, i.e. an intersection, when discriminant is positive
+    float dist = (-b - sqrt(discriminant)) / (2.0 * a);
+    if (dist >= 0.0) {
+      // ignoring intersections behind ray
+      hitInfo.hit = true;
+      hitInfo.dist = dist;
+      hitInfo.hitPoint = ray.origin + ray.direction * dist;
+      hitInfo.normal = normalize(hitInfo.hitPoint - sphere.position);
+      hitInfo.color = sphere.color;
+      hitInfo.emitColor = sphere.emitColor;
+      hitInfo.emitIntensity = sphere.emitIntensity;
+    }
+  }
+  return hitInfo;
+}
+
+HitInfo rayTriangleIntersection(Ray ray, Triangle tri) {
+  vec3 edge1 = tri.B - tri.A;
+  vec3 edge2 = tri.C - tri.A;
+  vec3 normal = cross(edge1, edge2);
+  vec3 aToOrigin = ray.origin - tri.A;
+  vec3 aoCrossRayDir = cross(aToOrigin, ray.direction);
+  float determinant = -dot(ray.direction, normal);
+  float inverseDeterminant = 1.0 / determinant;
+
+  float dist = dot(aToOrigin, normal) * inverseDeterminant;
+  // barycentric coordinates
+  float u = dot(edge2, aoCrossRayDir) * inverseDeterminant;
+  float v = -dot(edge1, aoCrossRayDir) * inverseDeterminant;
+  float w = 1.0 - u - v;
+
+  return HitInfo(
+    determinant >= 1e-6 && dist >= 0.0 && u >= 0.0 && v >= 0.0 && w >= 0.0,
+    dist,
+    ray.origin + ray.direction * dist,
+    normalize(tri.normA * w + tri.normB * u + tri.normC * v),
+    tri.color,
+    vec4(0.0), // light emission
+    0.0
+  );
+}
+
+HitInfo calculateRayCollision(Ray ray) {
+    HitInfo nearest = HitInfo(false, far, vec3(0.0), vec3(0.0), vec4(0.0), vec4(0.0), 0.0); // pass this to intersect function (by ref in glsl?)
+    for (int s = 0; s < numSpheres; s++) {
+      HitInfo hitInfo = raySphereIntersection(ray, spheres[s]);
+      if (hitInfo.hit && hitInfo.dist < nearest.dist) {
+        nearest = hitInfo;
+      }
+    }
+    for (int t = 0; t < numVertices; t += 9) {
+      Triangle tri = Triangle(
+        vec3(vertices[t], vertices[t + 1], vertices[t + 2]),
+        vec3(vertices[t + 3], vertices[t + 4], vertices[t + 5]),
+        vec3(vertices[t + 6], vertices[t + 7], vertices[t + 8]),
+        vec3(normals[t], normals[t + 1], normals[t + 2]),
+        vec3(normals[t + 3], normals[t + 4], normals[t + 5]),
+        vec3(normals[t + 6], normals[t + 7], normals[t + 8]),
+        vec4(1.0, 0.0, 0.0, 1.0)
+      );
+      HitInfo hitInfo = rayTriangleIntersection(ray, tri);
+      if (hitInfo.hit && hitInfo.dist < nearest.dist) {
+        nearest = hitInfo;
+      }
+    }
+    return nearest;
+  }
+
+vec4 trace(Ray ray) {
+  vec4 incomingLight = vec4(0.0);
+  for (int i = 0; i < rayDepth; i++) {
+    HitInfo hitInfo = calculateRayCollision(ray);
+    if (hitInfo.hit) {
+      ray.origin = hitInfo.hitPoint;
+      ray.direction = normalize(hitInfo.normal + randNormalDistrubution());
+      incomingLight += hitInfo.emitColor * hitInfo.emitIntensity * ray.color;
+      ray.color *= hitInfo.color;
+    } else {
+      // incomingLight += vec4(0.25, 0.2, 0.2, 1.0) * ray.color;
+      break;
+    }
+  }
+  incomingLight.a = 1.0;
+  return incomingLight;
+}
+
+void main() {
+  rngState = rngSeed + gl_FragCoord.yy * gl_FragCoord.xx * 0.93490324;
+  vec2 ndc = gl_FragCoord.xy * ndcParams.xy;
+  vec2 screen = 2.0 * ndc - 1.0;
+  vec3 viewPointLocal = vec3(screen, -1.0) * viewParams;
+  vec3 viewPoint = vec3(camLocalToWorldMat * vec4(viewPointLocal, 1.0));
+  vec3 rayOrigin = vec3(camLocalToWorldMat * vec4(0.0, 0.0, 0.0, 1.0));
+  Ray ray = Ray(rayOrigin, normalize(viewPoint - rayOrigin), vec4(1.0));
+  vec4 incomingLight = vec4(0.0);
+  for (int i = 0; i < numRays; i++) {
+    incomingLight += trace(ray);
+  }
+  gl_FragColor = incomingLight / float(numRays);
+}

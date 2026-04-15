@@ -29,11 +29,32 @@
     }
   </style>
   <script type="module">
-    import { Renderer } from './renderer.js';
-    import { Scenes } from './scenes.js';
+    import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
+    import { Renderer, ShadowMapRenderer } from './renderer.js';
+    import { Scenes, Misc } from './scenes.js';
 
-    const renderer = new Renderer(Scenes.LivingRoom());
-    // const renderer = new Renderer(Scenes.BreakfastRoom());
+    const renderer = new ShadowMapRenderer(Scenes.LivingRoom());
+    // const renderer = new ShadowMapRenderer(Scenes.BreakfastRoom());
+    // const renderer = new ShadowMapRenderer(Scenes.Desk());
+
+
+
+    const gui = new GUI({title: 'Lighting Controls'});
+    const lights = renderer.lighting?.s || [];
+    const group = gui.addFolder('Global');
+    group.add(renderer.lighting, 'antiWashout').onChange(() => renderer.controls.changed = true);
+    group.add(renderer.lighting, 'a').name('ambient').step(0.01).onChange(() => renderer.controls.changed = true);
+    group.add(renderer.lighting.d, 'mag').name('directional').step(0.01).onChange(() => renderer.controls.changed = true);
+    for (let i = 0; i < lights.length; i++) {
+      const light = lights[i];
+      const name = light.name || 'Light ' + i;
+      const group = gui.addFolder(name);
+      if (!Object.hasOwn(light, 'on')) {
+        light.on = true;
+      }
+      group.add(light, 'on')?.onChange(() => renderer.controls.changed = true);
+      group.add(light, 'brightness').onChange(() => renderer.controls.changed = true);
+    }
     renderer.start();
   </script>
 </head>

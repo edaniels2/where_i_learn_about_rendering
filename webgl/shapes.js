@@ -14,7 +14,7 @@ export class Floor extends ArrayGeometry {
         right, 0, front,
         right, 0, back,
         left, 0, front,
-        right, 0, front,
+        // right, 0, front,
       ],
       normals: [
         0, 1, 0,
@@ -23,7 +23,7 @@ export class Floor extends ArrayGeometry {
         0, 1, 0,
         0, 1, 0,
         0, 1, 0,
-        0, 1, 0,
+        // 0, 1, 0,
       ],
       texCoords: [
         1, 1,
@@ -32,7 +32,7 @@ export class Floor extends ArrayGeometry {
         1, 0,
         1, 1,
         0, 0,
-        1, 0,
+        // 1, 0,
       ]
     }];
   }

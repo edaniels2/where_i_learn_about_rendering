@@ -1,49 +1,223 @@
 precision mediump float;
 
 uniform sampler2D uTexture;
-uniform sampler2D uShadowMap0;
-uniform sampler2D uShadowMap1;
-uniform float uOutsideShadowMapCoef;
-uniform float uShadowCoef;
+uniform sampler2D uShadowMap0up;
+uniform sampler2D uShadowMap0dn;
+uniform sampler2D uShadowMap0north;
+uniform sampler2D uShadowMap0south;
+uniform sampler2D uShadowMap0east;
+uniform sampler2D uShadowMap0west;
+uniform sampler2D uShadowMap1up;
+uniform sampler2D uShadowMap1dn;
+uniform sampler2D uShadowMap1north;
+uniform sampler2D uShadowMap1south;
+uniform sampler2D uShadowMap1east;
+uniform sampler2D uShadowMap1west;
 uniform float uShadowBias;
 uniform float uOpacity;
 uniform vec3 uKs;
 uniform float uLdm;
 uniform float uNs;
 
-varying vec4 vKad;
+varying vec3 vKad;
+varying vec3 vKp0;
+varying vec3 vKp1;
 varying vec3 vLrefl;
 varying vec3 vPosition;
 varying vec2 vTexCoord;
+varying vec2 rngSeed;
 
 varying vec3 vLp0refl;
 varying vec3 vLp1refl;
 varying float vpl0m;
 varying float vpl1m;
-varying vec4 vProjectedShadow0;
-varying vec4 vProjectedShadow1;
+varying vec4 vProjectedShadow0up;
+varying vec4 vProjectedShadow0dn;
+varying vec4 vProjectedShadow0north;
+varying vec4 vProjectedShadow0south;
+varying vec4 vProjectedShadow0east;
+varying vec4 vProjectedShadow0west;
+varying vec4 vProjectedShadow1up;
+varying vec4 vProjectedShadow1dn;
+varying vec4 vProjectedShadow1north;
+varying vec4 vProjectedShadow1south;
+varying vec4 vProjectedShadow1east;
+varying vec4 vProjectedShadow1west;
+
+float rand(vec2 p) {
+	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  // return fract(sin(dot(p, vec2(1.0,113.0)))*43758.5453123);
+}
+
+vec3 sigmoid(vec3 value) {
+  return 2.0 / (1.0 + exp2(-value * 2.0 + 1.5)) - 0.4;
+}
+
+vec3 relu(vec3 value) {
+  return min(vec3(1.0), value);
+}
 
 void main() {
-  // TODO handle the case when no point lights are defined (probably just use a different shader)
-  vec3 uv = vProjectedShadow0.xyz / vProjectedShadow0.w;
-  float testDepth = uv.z - uShadowBias; // bias to prevent shadows showing up on lit surfaces (make this configurable)
-  bool inside =  uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
-  float shadowDepth = texture2D(uShadowMap0, uv.xy).r;
-  float shadowCoef0 = inside ? (shadowDepth <= testDepth ? uShadowCoef : 1.0) : uOutsideShadowMapCoef;
+  vec3 uv = vProjectedShadow0up.xyz / vProjectedShadow0up.w;
+  float testDepth = uv.z - uShadowBias;
+  bool inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+  vec4 shadowTexel = texture2D(uShadowMap0up, uv.xy);
+  float shadowDepth = shadowTexel.r;
+  float shadowOpacity = 1.0;
+  // float castDist = testDepth - shadowDepth;
+  // bool inShadow = castDist > 0.0;
+  // float castDist = 0.0;
+  bool inShadow = shadowDepth < testDepth;
+  bool lit = false;
+  if (inMap) {
+    lit = !inShadow;
+    // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+    shadowOpacity = shadowTexel.a;
+  }
 
-  uv = vProjectedShadow1.xyz / vProjectedShadow1.w;
-  testDepth = uv.z - uShadowBias; // bias to prevent shadows showing up on lit surfaces (make this configurable)
-  inside =  uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
-  shadowDepth = texture2D(uShadowMap1, uv.xy).r;
-  float shadowCoef1 = inside ? (shadowDepth <= testDepth ? uShadowCoef : 1.0) : uOutsideShadowMapCoef;
+  if (!lit) {
+    uv = vProjectedShadow0dn.xyz / vProjectedShadow0dn.w;
+    testDepth = uv.z - uShadowBias;
+    inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowTexel = texture2D(uShadowMap0dn, uv.xy);
+    shadowDepth = shadowTexel.r;
+    // castDist = testDepth - shadowDepth;
+    // inShadow = castDist > 0.0;
+    inShadow = shadowDepth < testDepth;
+    if (inMap) {
+      lit = !inShadow;
+      // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+      shadowOpacity = shadowTexel.a;
+    }
+  }
+  if (!lit) {
+    uv = vProjectedShadow0north.xyz / vProjectedShadow0north.w;
+    testDepth = uv.z - uShadowBias;
+    inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowTexel = texture2D(uShadowMap0north, uv.xy);
+    shadowDepth = shadowTexel.r;
+    // castDist = testDepth - shadowDepth;
+    // inShadow = castDist > 0.0;
+    inShadow = shadowDepth < testDepth;
+    if (inMap) {
+      lit = !inShadow;
+      // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+      shadowOpacity = shadowTexel.a;
+    }
+  }
+  if (!lit) {
+    uv = vProjectedShadow0south.xyz / vProjectedShadow0south.w;
+    testDepth = uv.z - uShadowBias;
+    inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowTexel = texture2D(uShadowMap0south, uv.xy);
+    shadowDepth = shadowTexel.r;
+    // castDist = testDepth - shadowDepth;
+    // inShadow = castDist > 0.0;
+    inShadow = shadowDepth < testDepth;
+    if (inMap) {
+      lit = !inShadow;
+      // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+      shadowOpacity = shadowTexel.a;
+    }
+  }
+  if (!lit) {
+    uv = vProjectedShadow0east.xyz / vProjectedShadow0east.w;
+    testDepth = uv.z - uShadowBias;
+    inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowTexel = texture2D(uShadowMap0east, uv.xy);
+    shadowDepth = shadowTexel.r;
+    // castDist = testDepth - shadowDepth;
+    // inShadow = castDist > 0.0;
+    inShadow = shadowDepth < testDepth;
+    if (inMap) {
+      lit = !inShadow;
+      // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+      shadowOpacity = shadowTexel.a;
+    }
+  }
+  if (!lit) {
+    uv = vProjectedShadow0west.xyz / vProjectedShadow0west.w;
+    testDepth = uv.z - uShadowBias;
+    inMap = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowTexel = texture2D(uShadowMap0west, uv.xy);
+    shadowDepth = shadowTexel.r;
+    // castDist = testDepth - shadowDepth;
+    // inShadow = castDist > 0.0;
+    inShadow = shadowDepth < testDepth;
+    if (inMap) {
+      lit = !inShadow;
+      // castDist = (inShadow && castDist == 0.0) ? testDepth - shadowDepth : castDist;
+      shadowOpacity = shadowTexel.a;
+    }
+  }
 
-  vec4 kTex = texture2D(uTexture, vTexCoord);
+  // vec3 kPointLight0 = lit ? vKp0 : vKp0 * (1.0 - pow(2.0, -castDist / 8.0));
+  // vec3 kPointLight0 = lit ? vKp0 : vKp0 * (1.0 - pow(2.0, -shadowOpacity));
+  vec3 kPointLight0 = lit ? vKp0 : vec3(0, 0, 0);
 
-  // probably add a specular coefficient uniform or something
+  uv = vProjectedShadow1up.xyz / vProjectedShadow1up.w;
+  testDepth = uv.z - uShadowBias;
+  bool inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+  shadowDepth = texture2D(uShadowMap1up, uv.xy).r;
+  inside1 = inside1 && shadowDepth > testDepth;
+
+  if (!inside1) {
+    uv = vProjectedShadow1dn.xyz / vProjectedShadow1dn.w;
+    testDepth = uv.z - uShadowBias;
+    inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowDepth = texture2D(uShadowMap1dn, uv.xy).r;
+    inside1 = inside1 && shadowDepth > testDepth;
+  }
+
+  if (!inside1) {
+    uv = vProjectedShadow1north.xyz / vProjectedShadow1north.w;
+    testDepth = uv.z - uShadowBias;
+    inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowDepth = texture2D(uShadowMap1north, uv.xy).r;
+    inside1 = inside1 && shadowDepth > testDepth;
+  }
+
+  if (!inside1) {
+    uv = vProjectedShadow1south.xyz / vProjectedShadow1south.w;
+    testDepth = uv.z - uShadowBias;
+    inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowDepth = texture2D(uShadowMap1south, uv.xy).r;
+    inside1 = inside1 && shadowDepth > testDepth;
+  }
+
+  if (!inside1) {
+    uv = vProjectedShadow1east.xyz / vProjectedShadow1east.w;
+    testDepth = uv.z - uShadowBias;
+    inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowDepth = texture2D(uShadowMap1east, uv.xy).r;
+    inside1 = inside1 && shadowDepth > testDepth;
+  }
+
+  if (!inside1) {
+    uv = vProjectedShadow1west.xyz / vProjectedShadow1west.w;
+    testDepth = uv.z - uShadowBias;
+    inside1 = uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    shadowDepth = texture2D(uShadowMap1west, uv.xy).r;
+    inside1 = inside1 && shadowDepth > testDepth;
+  }
+
+  vec3 kPointLight1 = inside1 ? vKp1 : vec3(0, 0, 0);
+
+  vec3 kTex = vec3(texture2D(uTexture, vTexCoord));
+
   float spec = max(0.0, pow(dot(normalize(vLrefl), -normalize(vPosition)), uNs)) * uLdm;
   float p0spec = max(0.0, pow(dot(normalize(vLp0refl), -normalize(vPosition)), uNs)) * vpl0m;
   float p1spec = max(0.0, pow(dot(normalize(vLp1refl), -normalize(vPosition)), uNs)) * vpl1m;
 
-// opacity wip
-  gl_FragColor = vec4((vec3(vKad * kTex) + uKs * (spec + p0spec + p1spec)) * shadowCoef0 * shadowCoef1, uOpacity);
+  // TODO: better noise, probably configured by something in the mtl. maybe try bump mapping?
+  // float noise = 1.0 - rand(rngSeed) * 0.15;
+
+  gl_FragColor = vec4((
+    (
+      vKad
+      + uKs * (spec + p0spec + p1spec)
+      + kPointLight0
+      + kPointLight1
+    ) * kTex// * noise
+  ), uOpacity);
 }

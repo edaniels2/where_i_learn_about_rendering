@@ -70,6 +70,7 @@ Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.08 0.04 0.0
 Ns 20.00
+d 0.92
 
 
 newmtl breakfast_room:Gold_Paint

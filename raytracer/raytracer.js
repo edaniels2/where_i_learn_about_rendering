@@ -1,4 +1,8 @@
 import { Vec3 } from '../vector.js';
+import { Sphere, Triangle } from './geometry.js';
+/**
+ * @typedef {import('./geometry.js').Geometry} Geometry
+ */
 
 /**
  * Entirely copied from https://github.com/scratchapixel/scratchapixel-code/blob/main/introduction-to-ray-tracing/raytracer.cpp
@@ -6,74 +10,6 @@ import { Vec3 } from '../vector.js';
 */
 
 const MAX_RAY_DEPTH = 5;
-
-// base class for renderable objects
-class Geometry {
-  /**@type{number}*/transparency;
-  /**@type{number}*/reflectivity;
-  /**@type{Vec3}*/surfaceColor;
-  /**@type{Vec3|undefined}*/emissionColor;
-  intersect(/**@type{Vec3}*/rayOrig, /**@type{Vec3}*/rayDir) { }
-  surfaceNormal(/**@type{Vec3}*/pt) { }
-}
-
-class Sphere extends Geometry {
-  constructor(
-    /**@type{Vec3}*/center,
-    /**@type{number}*/radius,
-    /**@type{Vec3}*/surfaceColor,
-    /**@type{number}*/reflectivity,
-    /**@type{number}*/transparency,
-    /**@type{Vec3}*/emissionColor = new Vec3,
-  ) {
-    super();
-    /**@type{Vec3}*/this.center = center;
-    /**@type{number}*/this.r = radius;
-    /**@type{number}*/this.rSq = radius * radius;
-    /**@type{Vec3}*/this.surfaceColor = surfaceColor;
-    /**@type{Vec3}*/this.emissionColor = emissionColor;
-    /**@type{number}*/this.transparency = transparency;
-    /**@type{number}*/this.reflectivity = reflectivity;
-  }
-
-  /**
-   * If the given ray intersects the sphere return the distance along the ray
-   * where it enters (t0) and exits (t1)
-   */
-  intersect(/**@type{Vec3}*/rayOrig, /**@type{Vec3}*/rayDir) {
-    const l = this.center.sub(rayOrig);
-    // not sure why they call it tca; this is the component of distance from ray
-    // origin to sphere center in the direction of the ray. Key here is that it
-    // increases as the ray points nearer to the sphere center
-    const tca = l.dot(rayDir);
-    if (tca < 0) {
-      // this would mean the ray direction is > 90˚ from the object so it can't
-      // be visible, and squaring it for the next step would likely give false hits
-      return null;
-    }
-    // this calculates the distance squared (along the perpendicular of a line from
-    // ray origin to sphere center) to ray; `l` is the hypotenuse, `tca` is a leg lying
-    // along the ray direction. Meaning if d <= sphere radius then it intersects.
-    const dSq = l.dot(l) - tca * tca;
-    if (dSq > this.rSq) {
-      return null;
-    }
-    // this is half of the distance where the ray is 'inside' the sphere, again
-    // not clear on their naming, maybe something to do with a tangent?
-    const thc = Math.sqrt(this.rSq - dSq);
-    return {
-      t0: tca - thc, // distance to front surface
-      t1: tca + thc, // distance to rear surface
-    };
-  }
-
-  /**
-   * Return the normal vector at the given point (assumes pt is on the sphere surface)
-   */
-  surfaceNormal(/**@type{Vec3}*/pt) {
-    return pt.sub(this.center).normalize();
-  }
-}
 
 // weighed average of 2 values; `mix` param is the % of b
 function mix(/**@type{number}*/a, /**@type{number}*/b, /**@type{number}*/mix) {
@@ -148,7 +84,7 @@ function trace(/**@type{Vec3}*/rayOrig, /**@type{Vec3}*/rayDir, /**@type{Geometr
       if (objects[i].emissionColor.x > 0) {
         // this is a light
         let transmission = new Vec3(1, 1, 1);
-        const lightDir = objects[i].center.sub(hitPoint).normalize();
+        const lightDir = objects[i].center ? objects[i].center.sub(hitPoint).normalize() : objects[i].surfaceNormal();
         for (let j = 0; j < objects.length; j++) {
           if (i != j) {
             const intersection = objects[j].intersect(hitPoint.add(surfaceNormal.scale(bias)), lightDir);
@@ -206,13 +142,14 @@ export function main() {
   const height = canvas.height;
   const ctx = canvas.getContext('2d');
   const objects = [
-    new Sphere(new Vec3(-10, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(3, 2.5, 2.5)), // light source
-    new Sphere(new Vec3(10, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(2.5, 2.5, 3)), // light source
-    new Sphere(new Vec3(0, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(2.5, 3, 2.5)), // light source
-    new Sphere(new Vec3(0, 10, -5), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(1, 1, 1)), // light source
+    // new Sphere(new Vec3(-10, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(3, 2.5, 2.5)), // light source
+    // new Sphere(new Vec3(10, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(2.5, 2.5, 3)), // light source
+    // new Sphere(new Vec3(0, 20, -30), 3, new Vec3(0, 0, 0), 0, 0, new Vec3(2.5, 3, 2.5)), // light source
+    new Sphere(new Vec3(0, 10, -5), 3, new Vec3(1, 1, 1), 0, 0, new Vec3(1, 1, 1)), // light source
 
-    new Sphere(new Vec3(0, -10004, -20), 10000, new Vec3(0.09, 0.10, 0.11), 0, 0), // creates a 'floor'
+    // new Sphere(new Vec3(0, -10004, -20), 10000, new Vec3(0.09, 0.10, 0.11), 0, 0), // creates a 'floor'
 
+    new Triangle([-2, -2, -10], [2, -2, -10], [0, 2, -12], new Vec3(1, 0, 0), 0, 0),
     new Sphere(new Vec3(0, 0, -20), 4, new Vec3(1.00, 0.32, 0.36), 1, 0.5),
     new Sphere(new Vec3(-3, 2, -24), 3, new Vec3(0.28, 0.45, 0.26), 0, 0),
     new Sphere(new Vec3(5, -1, -15), 2, new Vec3(0.90, 0.76, 0.46), 1, 0),

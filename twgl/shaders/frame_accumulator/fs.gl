@@ -1,0 +1,13 @@
+precision mediump float;
+
+uniform float accumulatedFrameCount;
+uniform sampler2D current;
+uniform sampler2D previous;
+varying vec2 texCoord;
+
+void main() {
+    vec4 previousRender = texture2D(previous, texCoord);
+    vec4 currentRender = texture2D(current, texCoord);
+    float weight = 1.0 / (accumulatedFrameCount + 1.0);
+    gl_FragColor = previousRender * (1.0 - weight) + currentRender * weight;
+}

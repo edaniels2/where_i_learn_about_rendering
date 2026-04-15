@@ -1,7 +1,7 @@
 precision mediump float;
 
-varying float z;
+uniform float opacity;
 
 void main() {
-  gl_FragColor = vec4(gl_FragCoord.z, gl_FragCoord.z, gl_FragCoord.z, 1.0); // does it matter what this is set to, or if it's set at all?
+  gl_FragColor = vec4(opacity, opacity, opacity, opacity);
 }
