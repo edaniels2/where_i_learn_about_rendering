@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dope</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      user-select: none;
+      touch-action: pinch-zoom;
+    }
+    canvas {
+      margin: auto;
+      pointer-events: all;
+      width: 100%;
+      height: 100%;
+    }
+    div.abs {
+      position: absolute;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      margin: 0;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "gl-matrix": "../node_modules/gl-matrix/esm/index.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import { BasicRenderer } from './renderer.js';
+    import { fromObjFile } from './obj-loader.js';
+
+    const renderer = new BasicRenderer(fromObjFile('../models/living_room/living_room.obj', {position: [0, -1.5, -5], }));
+    renderer.start();
+  </script>
+</head>
+<body>
+  <div class="abs">
+    <canvas></canvas>
+  </div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "gl-matrix": "../node_modules/gl-matrix/gl-matrix-min.js"
+  }
+}

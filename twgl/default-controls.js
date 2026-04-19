@@ -28,7 +28,7 @@ export class DefaultControls {
     if (this.movement[0] || this.movement[2]) {
       const translation = this.lockHeight
         ? twgl.m4.transformDirection(twgl.m4.rotationX(-this.elev), this.movement)
-        : this.movement;
+        : twgl.m4.copy(this.movement);
       twgl.m4.translate(this.matrix, twgl.v3.mulScalar(translation, this.step, translation), this.matrix);
       this.changed = true;
     }
