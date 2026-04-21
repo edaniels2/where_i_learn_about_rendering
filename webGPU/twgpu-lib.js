@@ -1,8 +1,26 @@
+/**
+ * @typedef { Float32Array | Int8Array | Int16Array | Int32Array } TypedArray
+*/
+
 export async function createManager(options) { // typedef the options
   /**@type{HTMLCanvasElement}*/const canvas = options?.canvas || document.querySelector('canvas');
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-  return new Manager(canvas, device);
+  // bgra8unorm as a storage texture is an optional feature so
+  // if it's supported then we don't care if presentationFormat is
+  // bgra8unorm or rgba8unorm but if the feature does not exist
+  // then we must use rgba8unorm
+  let presentationFormat = adapter.features.has('bgra8unorm-storage')
+      ? navigator.gpu.getPreferredCanvasFormat()
+      : 'rgba8unorm';
+
+  const device = await adapter?.requestDevice({
+    requiredFeatures: presentationFormat === 'bgra8unorm'
+        ? ['bgra8unorm-storage']
+        : [],
+  });
+  const usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT;
+  return new ComputeToCanvasManager({canvas, device, presentationFormat, usage});
+  // return new Manager({canvas, device, presentationFormat});
 }
 
 export class Manager {
@@ -11,19 +29,21 @@ export class Manager {
   _indexBuffersInfo = [];
   _multisampleTexture;
   _perGroupUniformDescriptors = new Map();
-  _pipelinesInfo = new Map();
+  _pipelines = new Map();
   _shaderModules = new Map();
   _staticUniformDescriptors = new Map();
   _vertexCount = 0;
 
-  constructor(canvas, device) {
-    this.canvas = canvas;
-    this.device = device;
-    this.ctx = canvas.getContext('webgpu');
+  constructor(settings) {
+    this.canvas = settings.canvas;
+    this.device = settings.device;
+    this.presentationFormat = settings.presentationFormat || 'rgba8unorm';
+    this.presentationFormat = 'rgba8unorm';
+    this.ctx = this.canvas.getContext('webgpu');
     this.ctx.configure({
       device: this.device,
-      format: navigator.gpu.getPreferredCanvasFormat(),
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      format: this.presentationFormat,
+      usage: settings.usage ?? GPUTextureUsage.RENDER_ATTACHMENT,
       alphaMode: 'opaque',
     });
     this.noTexture = this.device.createTexture({
@@ -41,10 +61,10 @@ export class Manager {
       { width: 1, height: 1 }
     );
     this.resizeCanvasToDisplaySize();
-    this.setRenderDescription();
+    this.handleResize();
   }
 
-  setRenderDescription() {
+  handleResize() {
     // recreate this on resize
     const depthTexture = this.device.createTexture({
       size: [this.canvas.width, this.canvas.height, 1],
@@ -53,7 +73,7 @@ export class Manager {
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
       sampleCount: 4
     });
-    this.depthTextureView = depthTexture.createView(); // create each frame?
+    this.depthTextureView = depthTexture.createView();
     this.renderDescription = {
       colorAttachments: [
         {
@@ -83,7 +103,7 @@ export class Manager {
       throw new Error('Set up vertex attributes first (createVertexAttributeBuffer)');
     }
     const shaderModule = this.getShader(shaderName);
-    const format = options?.outputFormat || 'bgra8unorm';
+    const format = options?.outputFormat || this.presentationFormat;
     const topology = options?.topology || 'triangle-list';
     const frontFace = options?.winding || 'ccw';
     const cullMode = options?.cullMode || 'back';
@@ -110,7 +130,7 @@ export class Manager {
     });
     const bindGroupLayout = pipeline.getBindGroupLayout(0);
     this.bindGroupLayout = bindGroupLayout;
-    this._pipelinesInfo.set(options?.name || shaderName, {pipeline, bindGroupLayout});
+    this._pipelines.set(options?.name || shaderName, pipeline);
     this.createUniformBindings(options?.objectGroups);
     return pipeline;
   }
@@ -137,6 +157,16 @@ export class Manager {
     return false;
   }
 
+  createSampler(options) {
+    return this.device.createSampler({
+      addressModeU: options?.addressModeU ?? 'repeat',
+      addressModeV: options?.addressModeV ?? 'repeat',
+      magFilter: options?.magFilter ?? 'linear',
+      minFilter: options?.minFilter ?? 'linear',
+      mipmapFilter: options?.mipmapFilter ?? 'linear',
+    });
+  }
+
 
  /***************** I'm more or less happy with what's above, but want to give more thought to everything below *******************/
 
@@ -144,8 +174,8 @@ export class Manager {
   singlePassRender(pipeline, renderPassGroups) { // maybe move renderPassGroups to a member var
     this.ensureMultisampleTexture();
     const passPipeline = typeof pipeline === 'string' ?
-      this._pipelinesInfo.get(pipeline).pipeline :
-      (pipeline ?? this._pipelinesInfo.values().next().value.pipeline);
+      this._pipelines.get(pipeline) :
+      (pipeline ?? this._pipelines.values().next().value);
     const colorTexture = this.ctx.getCurrentTexture();
     this.renderDescription.colorAttachments[0].view = this._multisampleTexture.createView(); // reuse or create each time?
     this.renderDescription.colorAttachments[0].resolveTarget = colorTexture.createView(); // reuse or create each time?
@@ -230,10 +260,14 @@ export class Manager {
     }
   }
 
-  updateUniform(name, data, offset = 0) {
-    const info = this._perGroupUniformDescriptors.get(name);
-    this.device.queue.writeBuffer(info.data, offset, data);
+  writeBuffer(gpuBuffer, offset, jsBuffer) {
+    this.device.queue.writeBuffer(gpuBuffer, offset, jsBuffer);
   }
+
+  // updateUniform(name, data, offset = 0) {
+  //   const info = this._perGroupUniformDescriptors.get(name);
+  //   this.device.queue.writeBuffer(info.data, offset, data);
+  // }
 
   createVertexAttributeBuffer(data, descriptors = [], format = 'float32x3') {
     /** @type{number} */let arrayStride = 0;
@@ -296,7 +330,7 @@ export class Manager {
       size = data.byteLength ?? data.length * 4;
     } else if (type === Uint16Array) { // or Int16Array i guess?
       size = data.byteLength ?? data.length * 2;
-      if (size %  4) {
+      if (size % 4) {
         // must be a multiple of 4
         size += 2;
       }
@@ -352,6 +386,101 @@ export class Manager {
   }
 }
 
-/**
- * @typedef { Float32Array | Int8Array | Int16Array | Int32Array } TypedArray
- */
+export class ComputeToCanvasManager extends Manager {
+  _bindGroups = new Map();
+
+  createPipeline(shaderName, options) {
+    const name = options?.name || shaderName;
+    const entryPoint = options?.entryPoint || 'main';
+    this._pipelines.set(name, this.device.createComputePipeline({
+      label: name,
+      layout: 'auto',
+      compute: { module: this.getShader(shaderName), entryPoint },
+    }));
+  }
+
+  createUniformBindings(renderTarget, pipelineName, bindGroupName) {
+    renderTarget ??= this.renderTexture;
+    pipelineName ??= this._pipelines.keys().next().value;
+    bindGroupName ??= pipelineName;
+    const pipeline = this._pipelines.get(pipelineName);
+    const entries = [{ binding: 0, resource: renderTarget.createView() }];
+    for (const entry of this._staticUniformDescriptors.values()) {
+      entries.push({binding: entry.binding, resource: entry.data});
+    }
+    this._bindGroups.set(bindGroupName, this.device.createBindGroup({
+      label: bindGroupName,
+      layout: pipeline.getBindGroupLayout(0),
+      entries,
+    }));
+    this._staticUniformDescriptors.clear();
+  }
+
+  singlePassRender(pipelineName, bindGroupName) {
+    pipelineName ??= this._pipelines.keys().next().value;
+    bindGroupName ??= pipelineName;
+    const canvasTexture = this.ctx.getCurrentTexture();
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(this._pipelines.get(pipelineName));
+    pass.setBindGroup(0, this._bindGroups.get(bindGroupName));
+    pass.dispatchWorkgroups(canvasTexture.width, canvasTexture.height);
+    pass.end();
+    encoder.copyTextureToTexture(
+      { texture: this.renderTexture },
+      { texture: canvasTexture },
+      { width: this.canvas.width, height: this.canvas.height }
+    );
+    this.device.queue.submit([encoder.finish()]);
+  }
+
+  multiPassRender(passesInfo, finalTexture, finalize) {
+    finalTexture ??= this.renderTexture;
+    const canvasTexture = this.ctx.getCurrentTexture();
+    const encoder = this.device.createCommandEncoder();
+    for (const info of passesInfo) {
+      let pipelineName = typeof info === 'string' ? info : info.pipelineName;
+      let bindGroupName = info.bindGroupName ?? pipelineName;
+      const pass = encoder.beginComputePass();
+      pass.setPipeline(this._pipelines.get(pipelineName));
+      pass.setBindGroup(0, this._bindGroups.get(bindGroupName));
+      pass.dispatchWorkgroups(canvasTexture.width, canvasTexture.height);
+      pass.end();
+    }
+    encoder.copyTextureToTexture(
+      { texture: finalTexture },
+      { texture: canvasTexture },
+      { width: this.canvas.width, height: this.canvas.height }
+    );
+    finalize?.(encoder);
+    this.device.queue.submit([encoder.finish()]);
+  }
+
+  handleResize() {
+    this.renderTexture = this.newFrameTexture();
+  }
+
+  newFrameTexture() {
+    return this.device.createTexture({
+      size: [this.canvas.width, this.canvas.height, 1],
+      dimension: '2d',
+      format: this.presentationFormat,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+    });
+  }
+
+  async resolveShader(/**@type{string}*/name) {
+    let module = this._shaderModules.get(name);
+    if (!module) {
+      const code = await (await fetch(`./shaders/${name}.wgsl`)).text().then(val => {
+        return val.replace('texture_storage_2d<bgra8unorm', `texture_storage_2d<${this.presentationFormat}`);
+      });
+      module = this.device.createShaderModule({ code });
+      this._shaderModules.set(name, module);
+      // pretty sure there's a package that will parse the shader for uniform bindings and struct packing help
+    }
+    return module;
+  }
+
+  setRenderDescription() { }
+}

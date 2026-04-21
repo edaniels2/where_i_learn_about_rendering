@@ -103,23 +103,33 @@ export class BasicRenderer {
 
     this.manager.createVertexAttributeBuffer(this.model.dereferencedVertices);
     this.manager.createVertexAttributeBuffer(this.model.dereferencedNormals, [{shaderLocation: 1}]);
-    this.manager.createVertexAttributeBuffer(this.model.dereferencedTexCoords, [{shaderLocation: 2}]);
-    this.manager.createPipeline('basic', {objectGroups: this.model.facetGroups});
+    if (this.model.dereferencedTexCoords.length) {
+      this.manager.createVertexAttributeBuffer(this.model.dereferencedTexCoords, [{shaderLocation: 2}]);
+    }
 
     // still working on drawing indexed
     // this.manager._drawIndexed = true;
-    // this.manager.createVertexAttributeBuffer(model.vertices.concat(model.normals), [
+    // this.manager.createVertexAttributeBuffer(this.model.vertices.concat(this.model.normals), [
     //   {
-    //     size: model.vertices.length * 4
+    //     size: this.model.vertices.length * 4,
+    //     stride: 12,
     //   },
     //   {
     //     shaderLocation: 1,
-    //     offset: 12,
-    //     size: model.normals.length * 4,
-    //   }
-    // ])
-    // this.manager.createIndexBuffer(model.indexes);
-
+    //     offset: (this.model.vertices.length + this.model.texCoords.length) * 4,
+    //     size: this.model.normals.length * 4,
+    //     stride: 12,
+    //   },
+    //   // {
+    //   //   shaderLocation: 2,
+    //   //   offset: this.model.vertices.length * 4,
+    //   //   size: this.model.texCoords.length * 4,
+    //   //   stride: 12
+    //   // }
+    // ]);
+    // this.manager.createIndexBuffer(this.model.indexes);
+    
+    this.manager.createPipeline('basic', {objectGroups: this.model.facetGroups});
     requestAnimationFrame(t => this.render(t));
   }
 

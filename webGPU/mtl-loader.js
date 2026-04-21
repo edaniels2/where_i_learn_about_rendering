@@ -22,7 +22,7 @@ export class MtlFile {
         materials[name] = currentMtl;
       } else {
         let [prop, ...values] = line.split(/\s+/);
-        if (['Ka', 'Kd', 'Ks', 'd', 'Tr', 'Ns', 'illum', 'map_Ka', 'map_Kd'].includes(prop)) {
+        if (['Ka', 'Kd', 'Ks', 'Ke', 'i', 'd', 'Tr', 'Ns', 'illum', 'map_Ka', 'map_Kd'].includes(prop)) {
           if (['map_Ka', 'map_Kd'].includes(prop)) {
             values = values.filter(s => s.trim()).map(value => `${this.dir}/${value}`);
           } else if (['texMode'].includes(prop)) {
@@ -50,4 +50,8 @@ export class MtlFile {
 *   map_Ka: string,
 *   map_Kd: string,
 *   name: string,
+*
+*   // Custom additions: color and intensity of emitted light
+*   Ke: [number, number, number],
+*   i: number,
 * }} Material*/

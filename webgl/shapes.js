@@ -35,5 +35,7 @@ export class Floor extends ArrayGeometry {
         // 1, 0,
       ]
     }];
+    this.dereferencedVertices = this.groups[0].vertices;
+    this.dereferencedNormals = this.groups[0].normals;
   }
 }

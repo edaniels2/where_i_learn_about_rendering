@@ -124,11 +124,11 @@ export class ObjFile {
               // list (which can easily get into the tens [maybe hundreds] of thousands) and not
               // find a match, but avoiding it seems very much non-trivial. It only has to run
               // once and then we can store the result back in the file
-              // const existing = calcNormals.find(o => o.vNum == parsedIndexes.vertex);
-              // const calcNormObj = existing || { normSum: [0, 0, 0], vNum: parsedIndexes.vertex };
-              // calcNormals.push(calcNormObj);
-              // glMatrix.vec3.add(calcNormObj.normSum, calcNormObj.normSum, sfcNorm);
-              // currentGroup.faceDefs.at(-1).at(positionIndex).normal = calcNormals.length;
+              const existing = calcNormals.find(o => o.vNum == parsedIndexes.vertex);
+              const calcNormObj = existing || { normSum: [0, 0, 0], vNum: parsedIndexes.vertex };
+              calcNormals.push(calcNormObj);
+              glMatrix.vec3.add(calcNormObj.normSum, calcNormObj.normSum, sfcNorm);
+              currentGroup.faceDefs.at(-1).at(positionIndex).normal = calcNormals.length;
             }
             if (parsedIndexes.texture) {
               currentGroup.texCoords.push(...texCoords[parsedIndexes.texture - 1]);
@@ -140,68 +140,69 @@ export class ObjFile {
         }
       }
     }
-
-    if (calcNormals.length) {
-      // fire a ready event, allow to create/save a file object with the new data
-      const blobParts = [];
-      const encoder = new TextEncoder;
-      if (currentMtlFile) {
-        blobParts.push(encoder.encode(`mtllib ${mtlPath}\n\n`));
-      }
-      rawVertices.forEach(v => {
-        blobParts.push(encoder.encode(`v ${v.join(' ')}\n`));
-      });
-      texCoords.forEach(vt => {
-        blobParts.push(encoder.encode(`vt ${vt.join(' ')}\n`));
-      });
-      let offset = 0;
-      for (let i = 0; i < facetGroups.length; i++) {
-        for (let j = 0; j < facetGroups[i].vertices.length; j += 3) {
-          const normObj = calcNormals[offset + j / 3];
-          if (!normObj.normalized) {
-            glMatrix.vec3.normalize(normObj.normSum, normObj.normSum);
-            normObj.normalized = true;
-          }
-          facetGroups[i].normals[j] = normObj.normSum[0];
-          facetGroups[i].normals[j + 1] = normObj.normSum[1];
-          facetGroups[i].normals[j + 2] = normObj.normSum[2];
-          blobParts.push(encoder.encode(`vn ${normObj.normSum.join(' ')}\n`));
-        }
-        offset += facetGroups[i].vertices.length / 3;
-      }
-      for (const group of facetGroups) {
-        blobParts.push(encoder.encode(`g ${group.name}\n`));
-        if (group.color) {
-          blobParts.push(encoder.encode(`c ${group.color.join(' ')}\n`));
-        }
-        if (group.material) {
-          blobParts.push(encoder.encode(`usemtl ${group.material.name}\n`));
-        }
-        for (const f of group.faceDefs) {
-          blobParts.push(encoder.encode('f '));
-          for (let i = 0; i < f.length; i++) {
-            blobParts.push(encoder.encode(f[i].vertex));
-            if (f[i].texture || f[i].normal) {
-              blobParts.push(encoder.encode(`/${f[i].texture || ''}`));
-              if (f[i].normal) {
-                blobParts.push(encoder.encode(`/${f[i].normal}`));
-              }
-            }
-            if (i < f.length) {
-              blobParts.push(encoder.encode(' '));
-            }
-          }
-          blobParts.push(encoder.encode('\n'));
-        }
-      }
-      const blob = new Blob(blobParts, {type: 'text/plain'});
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = this.name.replace('.obj', '_calc_normals.obj');
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+    // if (calcNormals.length) {
+    //   // fire a ready event, allow to create/save a file object with the new data
+    //   const blobParts = [];
+    //   const encoder = new TextEncoder;
+    //   if (currentMtlFile) {
+    //     blobParts.push(encoder.encode(`mtllib ${mtlPath}\n\n`));
+    //   }
+    //   rawVertices.forEach(v => {
+    //     blobParts.push(encoder.encode(`v ${v.join(' ')}\n`));
+    //   });
+    //   texCoords.forEach(vt => {
+    //     blobParts.push(encoder.encode(`vt ${vt.join(' ')}\n`));
+    //   });
+    //   let offset = 0;
+    //   for (let i = 0; i < facetGroups.length; i++) {
+    //     for (let j = 0; j < facetGroups[i].vertices.length; j += 3) {
+    //       const normObj = calcNormals[offset + j / 3];
+    //       if (!normObj.normalized) {
+    //         glMatrix.vec3.normalize(normObj.normSum, normObj.normSum);
+    //         normObj.normalized = true;
+    //       }
+    //       facetGroups[i].normals[j] = normObj.normSum[0];
+    //       facetGroups[i].normals[j + 1] = normObj.normSum[1];
+    //       facetGroups[i].normals[j + 2] = normObj.normSum[2];
+    //       blobParts.push(encoder.encode(`vn ${normObj.normSum.join(' ')}\n`));
+    //     }
+    //     offset += facetGroups[i].vertices.length / 3;
+    //   }
+    //   for (const group of facetGroups) {
+    //     blobParts.push(encoder.encode(`g ${group.name}\n`));
+    //     if (group.color) {
+    //       blobParts.push(encoder.encode(`c ${group.color.join(' ')}\n`));
+    //     }
+    //     if (group.material) {
+    //       blobParts.push(encoder.encode(`usemtl ${group.material.name}\n`));
+    //     }
+    //     for (const f of group.faceDefs) {
+    //       blobParts.push(encoder.encode('f '));
+    //       for (let i = 0; i < f.length; i++) {
+    //         blobParts.push(encoder.encode(f[i].vertex));
+    //         if (f[i].texture || f[i].normal) {
+    //           blobParts.push(encoder.encode(`/${f[i].texture || ''}`));
+    //           if (f[i].normal) {
+    //             blobParts.push(encoder.encode(`/${f[i].normal}`));
+    //           }
+    //         }
+    //         if (i < f.length) {
+    //           blobParts.push(encoder.encode(' '));
+    //         }
+    //       }
+    //       blobParts.push(encoder.encode('\n'));
+    //     }
+    //   }
+    //   const blob = new Blob(blobParts, {type: 'text/plain'});
+    //   const a = document.createElement('a');
+    //   const url = URL.createObjectURL(blob);
+    //   a.href = url;
+    //   a.download = this.name.replace('.obj', '_calc_normals.obj');
+    //   a.innerText = 'get it'
+    //   document.body.appendChild(a)
+    //   a.click();
+    //   // URL.revokeObjectURL(url);
+    // }
 
     if (this.drawElements) {
       return class extends ElementGeometry {

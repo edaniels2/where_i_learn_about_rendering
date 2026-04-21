@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec3, quat } from 'gl-matrix';
 import { MtlFile } from './mtl-loader.js';
 /**
  * @typedef {import('./mtl-file.js').Material} Material
@@ -64,7 +64,7 @@ export class ObjFile {
         if (!currentGroup || currentGroup?.length) {
           // make sure we start a new group on material changes
           const currentName = name || currentGroup?.name || 'no_name';
-          currentGroup = new FacetGroup(currentName, currentMtl, currentMtl.name, currentIndex);
+          currentGroup = new FacetGroup(currentName, currentMtl, currentIndex);
           facetGroups.push(currentGroup);
         } else {
           currentGroup.material = currentMtl;
@@ -91,7 +91,7 @@ export class ObjFile {
       if (line.startsWith('f ')) {
         if (!currentGroup) {
           // throw new Error('does this happen?');
-          currentGroup = new FacetGroup('no_name', currentMtl, currentMtl.name, currentIndex);
+          currentGroup = new FacetGroup('no_name', currentMtl, currentIndex);
           facetGroups.push(currentGroup);
         }
         const indexes = line.trim().split(/\s+/).slice(1).map(index => {
@@ -131,8 +131,7 @@ export class ObjFile {
               texCoords[bStart], texCoords[bStart + 1], texCoords[bStart + 2],
               texCoords[cStart], texCoords[cStart + 1], texCoords[cStart + 2],
             );
-            const offset = vertices.length * 3;
-            combinedIndexes.push(a + offset, b + offset, c + offset);
+            combinedIndexes.push(a, b, c);
           }
           if (triangle[0].normal) {
             const a = triangle[0].normal - 1;
@@ -147,8 +146,7 @@ export class ObjFile {
               normals[bStart], normals[bStart + 1], normals[bStart + 2],
               normals[cStart], normals[cStart + 1], normals[cStart + 2],
             );
-            const offset = vertices.length * 3 + texCoords.length * 2;
-            combinedIndexes.push(a + offset, b + offset, c + offset);
+            combinedIndexes.push(a, b, c);
           }
           currentIndex += 3;
           currentGroup.length += 3;
@@ -165,7 +163,7 @@ export class ObjFile {
         this.vertices = vertices;
         this.normals = normals;
         this.texCoords = texCoords;
-        this.indexes = combinedIndexes;
+        // this.indexes = combinedIndexes;
         this.vertexIndexes = vertexIndexes;
         this.normalIndexes = normalIndexes;
         this.textureIndexes = textureIndexes;
@@ -183,32 +181,55 @@ export class ObjFile {
 export class Geometry {
   constructor(options) {
     this.matrix = mat4.create();
+    this.transformed = false;
     if (options?.position) {
       mat4.translate(this.matrix, this.matrix, options.position);
+      this.transformed = true;
     }
     if (options?.scale) {
       mat4.scale(this.matrix, this.matrix, [options.scale, options.scale, options.scale]);
+      this.transformed = true;
     }
     if (options?.rotateX) {
       mat4.rotateX(this.matrix, this.matrix, options.rotateX);
+      this.transformed = true;
     }
     if (options?.rotateY) {
       mat4.rotateY(this.matrix, this.matrix, options.rotateY);
+      this.transformed = true;
     }
     if (options?.rotateZ) {
       mat4.rotateZ(this.matrix, this.matrix, options.rotateZ);
+      this.transformed = true;
     }
     this.define();
+    this.transform();
+  }
+
+  transform() {
+    if (!this.transformed) {
+      return;
+    }
+    const rotation = mat4.fromQuat(mat4.create(), mat4.getRotation(quat.create(), this.matrix));
+    for (let i = 0; i < this.dereferencedVertices.length; i += 3) {
+      const vtx = this.dereferencedVertices.slice(i, i + 3);
+      vec3.transformMat4(vtx, vtx, this.matrix);
+      this.dereferencedVertices.splice(i, 3, vtx[0], vtx[1], vtx[2]);
+
+      const norm = this.dereferencedNormals.slice(i, i + 3);
+      vec3.transformMat4(norm, norm, rotation);
+      this.dereferencedNormals.splice(i, 3, norm[0], norm[1], norm[2]);
+    }
   }
 
   define() { }
 }
 
 class FacetGroup {
-  constructor(/**@type{string}*/name = '', /**@type{Material}*/material, /**@type{string}*/materialName, /**@type{number}*/startIndex) {
+  constructor(/**@type{string}*/name = '', /**@type{Material}*/material, /**@type{number}*/startIndex) {
     this.name = name;
     this.material = material;
-    this.materialName = material.name;
+    this.materialName = material?.name;
     this.startIndex = startIndex;
     this.byteOffset = startIndex * 4;
     this.byteLength = 0;

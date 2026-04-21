@@ -36,10 +36,22 @@
     }
   </script>
   <script type="module">
+    import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
     import { BasicRenderer } from './renderer.js';
+    import { RaytraceRenderer } from './raytrace-renderer.js';
     import { fromObjFile } from './obj-loader.js';
 
-    const renderer = new BasicRenderer(fromObjFile('../models/living_room/living_room.obj', {position: [0, -1.5, -5], }));
+    const renderer = new RaytraceRenderer({
+      models: [
+        fromObjFile('/models/lightcube.obj', {position: [-0.125, 0.3, -2.75], scale: 0.25}),
+        fromObjFile('/models/cornell_box.obj', {position: [0, -0.5, -2]}),
+        fromObjFile('/models/icosahedron_calc_normals.obj', {position: [-0.2, -0.3, -2.7], scale: 0.3}),
+        fromObjFile('/models/cube.obj', {position: [0, -0.5, -2.5], scale: 0.3, rotateY: Math.PI / 6}),
+      ]
+    });
+    // const renderer = new BasicRenderer(fromObjFile('../models/car.obj', {position: [0, -1.5, -5], }));
+    const gui = new GUI();
+    gui.add(renderer, 'frameAccumulator');
     renderer.start();
   </script>
 </head>

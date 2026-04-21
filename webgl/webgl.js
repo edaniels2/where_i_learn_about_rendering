@@ -32,7 +32,7 @@ const modelSources = [
   // fromObjFile('../models/desk/desk.obj', {position: [-1.4, 0.55, 2.3], contrast: 2, scale: 0.2, rotateY: Math.PI / 2}),
   // fromObjFile('../models/living_room/living_room.obj', {position: [0, 0.5, -4], }),
   // fromObjFile('../models/InteriorTest/InteriorTest.obj', {position: [0, 1, 0]}),
-  fromObjFile('../models/breakfast_room/breakfast_room.obj', {position: [0, 0, -5], }),
+  fromObjFile('../models/icosahedron.obj', {position: [0, 0, -5], }),
   // fromObjFile('../models/bmw/bmw.obj', {position: [0, 0, 0], scale: 0.3}),
   // fromObjFile('../models/great_room/model.obj', {position: [0, 0, 0], scale: 0.3}),
 ];
