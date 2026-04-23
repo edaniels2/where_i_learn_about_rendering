@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "gl-matrix": "^3.4.4"
+    "gl-matrix": "^3.4.4",
+    "webgpu-utils": "^2.1.0"
   }
 }

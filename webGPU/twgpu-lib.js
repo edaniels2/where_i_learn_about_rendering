@@ -5,22 +5,25 @@
 export async function createManager(options) { // typedef the options
   /**@type{HTMLCanvasElement}*/const canvas = options?.canvas || document.querySelector('canvas');
   const adapter = await navigator.gpu.requestAdapter();
-  // bgra8unorm as a storage texture is an optional feature so
-  // if it's supported then we don't care if presentationFormat is
-  // bgra8unorm or rgba8unorm but if the feature does not exist
-  // then we must use rgba8unorm
-  let presentationFormat = adapter.features.has('bgra8unorm-storage')
+
+  if (options?.computeToCanvas) {
+    // bgra8unorm as a storage texture is an optional feature so
+    // if it's supported then we don't care if presentationFormat is
+    // bgra8unorm or rgba8unorm but if the feature does not exist
+    // then we must use rgba8unorm
+    const presentationFormat = adapter.features.has('bgra8unorm-storage')
       ? navigator.gpu.getPreferredCanvasFormat()
       : 'rgba8unorm';
-
-  const device = await adapter?.requestDevice({
-    requiredFeatures: presentationFormat === 'bgra8unorm'
-        ? ['bgra8unorm-storage']
-        : [],
-  });
-  const usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT;
-  return new ComputeToCanvasManager({canvas, device, presentationFormat, usage});
-  // return new Manager({canvas, device, presentationFormat});
+    const requiredFeatures = presentationFormat === 'bgra8unorm'
+      ? ['bgra8unorm-storage']
+      : []
+    const device = await adapter?.requestDevice({ requiredFeatures });
+    const usage = GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT;
+    return new ComputeToCanvasManager({canvas, device, presentationFormat, usage});
+  }
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+  const device = await adapter?.requestDevice();
+  return new Manager({canvas, device, presentationFormat});
 }
 
 export class Manager {
@@ -378,7 +381,7 @@ export class Manager {
   async resolveShader(/**@type{string}*/name) {
     let module = this._shaderModules.get(name);
     if (!module) {
-      const code = await (await fetch(`./shaders/${name}.wgsl`)).text();
+      const code = await (await fetch(`/webGPU/shaders/${name}.wgsl`)).text();
       module = this.device.createShaderModule({ code });
       this._shaderModules.set(name, module);
     }
@@ -472,7 +475,7 @@ export class ComputeToCanvasManager extends Manager {
   async resolveShader(/**@type{string}*/name) {
     let module = this._shaderModules.get(name);
     if (!module) {
-      const code = await (await fetch(`./shaders/${name}.wgsl`)).text().then(val => {
+      const code = await (await fetch(`/webGPU/shaders/${name}.wgsl`)).text().then(val => {
         return val.replace('texture_storage_2d<bgra8unorm', `texture_storage_2d<${this.presentationFormat}`);
       });
       module = this.device.createShaderModule({ code });

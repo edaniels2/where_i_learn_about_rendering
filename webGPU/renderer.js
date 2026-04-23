@@ -4,16 +4,17 @@ import { DefaultControls } from '../twgl/default-controls.js';
 
 export class BasicRenderer {
 
-  constructor(modelSources) {
+  constructor(scene) {
     glMatrix.setMatrixArrayType(Array);
-    this.modelSources = modelSources;
+    this.modelSources = scene.models;
   }
 
   async start() {
     this.manager = await createManager();
     await this.manager.resolveShader('basic');
-    // todo: support multiple models
-    this.model = await (typeof this.modelSources === Promise ? this.modelSources : Promise.resolve(this.modelSources));
+    const promises = this.modelSources.map(src => src instanceof Promise ? src : Promise.resolve(src));
+    this.models = await Promise.all(promises);
+    this.model = this.models[0];
     
     // move to manager
     this.textures = new WeakMap();
@@ -72,12 +73,12 @@ export class BasicRenderer {
         visibility: GPUShaderStage.VERTEX,
         data: this.projectionBuffer
       },
-      sampler: {
-        binding: 5,
-        resource: 'sampler',
-        visibility: GPUShaderStage.FRAGMENT,
-        data: sampler,
-      }
+      // sampler: {
+      //   binding: 5,
+      //   resource: 'sampler',
+      //   visibility: GPUShaderStage.FRAGMENT,
+      //   data: sampler,
+      // }
     })
     this.manager.setPerGroupUniforms({
       material: {
@@ -93,12 +94,12 @@ export class BasicRenderer {
           material.illum && writeBuffer.set(material.illum, 13);
         },
       },
-      texture: {
-        binding: 4,
-        resource: 'texture',
-        visibility: GPUShaderStage.FRAGMENT,
-        setter: material => this.textures.get(material),
-      }
+      // texture: {
+      //   binding: 4,
+      //   resource: 'texture',
+      //   visibility: GPUShaderStage.FRAGMENT,
+      //   setter: material => this.textures.get(material),
+      // }
     }, Object.values(this.model.materials), 'materialName');
 
     this.manager.createVertexAttributeBuffer(this.model.dereferencedVertices);

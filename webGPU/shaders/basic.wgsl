@@ -30,7 +30,7 @@ var tex_sampler: sampler;
 fn vs_main(
     @location(0) inPos: vec3f,
     @location(1) inNormal: vec3f,
-    @location(2) inTexCoords: vec2f,
+    // @location(2) inTexCoords: vec2f,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = projection * transform * vec4f(inPos, 1.0);
@@ -38,7 +38,7 @@ fn vs_main(
     // seems fine as long as w component is 0
     out.normal = normalize(/* rotation */ transform * vec4(inNormal, 0)).xyz;
     out.tempLight = (/* rotation */ transform * vec4f(.4, -0.7, -0.7, 0)).xyz;
-    out.tex_coords = inTexCoords;
+    // out.tex_coords = inTexCoords;
     return out;
 }
 
@@ -52,7 +52,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         + mtl.Kd * Ld
         // + specular
     ;
-    var tex: vec4f = textureSample(tex_diffuse, tex_sampler, in.tex_coords);
-    tex = vec4f(tex.rgb * Ld, tex.a);
-    return vec4f(color, 1) * tex;
+    // var tex: vec4f = textureSample(tex_diffuse, tex_sampler, in.tex_coords);
+    // tex = vec4f(tex.rgb * Ld, tex.a);
+    return vec4f(color, 1);// * tex;
 }

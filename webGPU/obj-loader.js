@@ -45,6 +45,7 @@ export class ObjFile {
     let /**@type{Material}*/ currentMtl;
     let /**@type{string}*/ mtlPath;
     let name = '';
+    let triangleIndex = 0;
 
     for (const line of content.split(/\n/)) {
       if (line.startsWith('mtllib')) {
@@ -64,7 +65,7 @@ export class ObjFile {
         if (!currentGroup || currentGroup?.length) {
           // make sure we start a new group on material changes
           const currentName = name || currentGroup?.name || 'no_name';
-          currentGroup = new FacetGroup(currentName, currentMtl, currentIndex);
+          currentGroup = new FacetGroup(currentName, currentMtl, currentIndex, triangleIndex);
           facetGroups.push(currentGroup);
         } else {
           currentGroup.material = currentMtl;
@@ -111,6 +112,12 @@ export class ObjFile {
             const aStart = a * 3;
             const bStart = b * 3;
             const cStart = c * 3;
+            const A = [vertices[aStart], vertices[aStart + 1], vertices[aStart + 2]];
+            const B = [vertices[bStart], vertices[bStart + 1], vertices[bStart + 2]];
+            const C = [vertices[cStart], vertices[cStart + 1], vertices[cStart + 2]];
+            currentGroup.updateBoundingBox(A);
+            currentGroup.updateBoundingBox(B);
+            currentGroup.updateBoundingBox(C);
             dereferencedVertices.push(
               vertices[aStart], vertices[aStart + 1], vertices[aStart + 2],
               vertices[bStart], vertices[bStart + 1], vertices[bStart + 2],
@@ -152,6 +159,8 @@ export class ObjFile {
           currentGroup.length += 3;
           currentGroup.byteLength += 12;
           indexes.splice(1, 1);
+          triangleIndex++;
+          currentGroup.triangleCount++;
         }
       }
     }
@@ -172,7 +181,7 @@ export class ObjFile {
         this.dereferencedVertices = dereferencedVertices;
         this.facetGroups = facetGroups;
         this.materials = materials
-        this.boundingBox = { xMin, yMin, zMin, xMax, yMax, zMax };
+        this.boundingBox = { min: [xMin, yMin, zMin], max: [xMax, yMax, zMax] };
       }
     }
   }
@@ -187,7 +196,8 @@ export class Geometry {
       this.transformed = true;
     }
     if (options?.scale) {
-      mat4.scale(this.matrix, this.matrix, [options.scale, options.scale, options.scale]);
+      let [x, y, z] = Array.isArray(options.scale) ? options.scale : [options.scale, options.scale, options.scale];
+      mat4.scale(this.matrix, this.matrix, [x, y, z]);
       this.transformed = true;
     }
     if (options?.rotateX) {
@@ -211,7 +221,17 @@ export class Geometry {
       return;
     }
     const rotation = mat4.fromQuat(mat4.create(), mat4.getRotation(quat.create(), this.matrix));
+    // recalculate bounding boxes as well
+    for (let i = 0; i < 3; i++) {
+      this.boundingBox.min[i] = Infinity;
+      this.boundingBox.max[i] = -Infinity;
+      for (const mesh of this.facetGroups) {
+        mesh.boundingBox.min[i] = Infinity;
+        mesh.boundingBox.max[i] = -Infinity;
+      }
+    }
     for (let i = 0; i < this.dereferencedVertices.length; i += 3) {
+      const mesh = this.getMesh(i / 3);
       const vtx = this.dereferencedVertices.slice(i, i + 3);
       vec3.transformMat4(vtx, vtx, this.matrix);
       this.dereferencedVertices.splice(i, 3, vtx[0], vtx[1], vtx[2]);
@@ -219,6 +239,29 @@ export class Geometry {
       const norm = this.dereferencedNormals.slice(i, i + 3);
       vec3.transformMat4(norm, norm, rotation);
       this.dereferencedNormals.splice(i, 3, norm[0], norm[1], norm[2]);
+
+      if (vtx[0] < this.boundingBox.min[0]) { this.boundingBox.min[0] = vtx[0] };
+      if (vtx[1] < this.boundingBox.min[1]) { this.boundingBox.min[1] = vtx[1] };
+      if (vtx[2] < this.boundingBox.min[2]) { this.boundingBox.min[2] = vtx[2] };
+      if (vtx[0] > this.boundingBox.max[0]) { this.boundingBox.max[0] = vtx[0] };
+      if (vtx[1] > this.boundingBox.max[1]) { this.boundingBox.max[1] = vtx[1] };
+      if (vtx[2] > this.boundingBox.max[2]) { this.boundingBox.max[2] = vtx[2] };
+
+      if (vtx[0] < mesh.boundingBox.min[0]) { mesh.boundingBox.min[0] = vtx[0] };
+      if (vtx[1] < mesh.boundingBox.min[1]) { mesh.boundingBox.min[1] = vtx[1] };
+      if (vtx[2] < mesh.boundingBox.min[2]) { mesh.boundingBox.min[2] = vtx[2] };
+      if (vtx[0] > mesh.boundingBox.max[0]) { mesh.boundingBox.max[0] = vtx[0] };
+      if (vtx[1] > mesh.boundingBox.max[1]) { mesh.boundingBox.max[1] = vtx[1] };
+      if (vtx[2] > mesh.boundingBox.max[2]) { mesh.boundingBox.max[2] = vtx[2] };
+    }
+  }
+
+  getMesh(vertexIndex) {
+    const triangleIndex = vertexIndex / 3; // in thirds so not really an index but it works
+    for (const mesh of this.facetGroups) {
+      if (mesh.triangleOffset <= triangleIndex && triangleIndex < (mesh.triangleOffset + mesh.triangleCount)) {
+        return mesh;
+      }
     }
   }
 
@@ -226,7 +269,7 @@ export class Geometry {
 }
 
 class FacetGroup {
-  constructor(/**@type{string}*/name = '', /**@type{Material}*/material, /**@type{number}*/startIndex) {
+  constructor(/**@type{string}*/name = '', /**@type{Material}*/material, /**@type{number}*/startIndex, triangleOffset) {
     this.name = name;
     this.material = material;
     this.materialName = material?.name;
@@ -234,6 +277,18 @@ class FacetGroup {
     this.byteOffset = startIndex * 4;
     this.byteLength = 0;
     this.length = 0;
+    this.triangleOffset = triangleOffset || 0;
+    this.triangleCount = 0;
+    this.boundingBox = {min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity]}
+  }
+
+  updateBoundingBox(/**@type{[number, number, number]}*/vtx) {
+      if (vtx[0] < this.boundingBox.min[0]) { this.boundingBox.min[0] = vtx[0] };
+      if (vtx[1] < this.boundingBox.min[1]) { this.boundingBox.min[1] = vtx[1] };
+      if (vtx[2] < this.boundingBox.min[2]) { this.boundingBox.min[2] = vtx[2] };
+      if (vtx[0] > this.boundingBox.max[0]) { this.boundingBox.max[0] = vtx[0] };
+      if (vtx[1] > this.boundingBox.max[1]) { this.boundingBox.max[1] = vtx[1] };
+      if (vtx[2] > this.boundingBox.max[2]) { this.boundingBox.max[2] = vtx[2] };
   }
 }
 

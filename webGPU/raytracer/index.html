@@ -27,34 +27,49 @@
       pointer-events: none;
       margin: 0;
     }
+    #info {
+      position: absolute;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0.5em;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+    }
   </style>
   <script type="importmap">
     {
       "imports": {
-        "gl-matrix": "../node_modules/gl-matrix/esm/index.js",
-        "webgpu-utils": "../node_modules/webgpu-utils/dist/2.x/webgpu-utils.module.js"
+        "gl-matrix": "../../node_modules/gl-matrix/esm/index.js",
+        "webgpu-utils": "../../node_modules/webgpu-utils/dist/2.x/webgpu-utils.module.js"
       }
     }
   </script>
   <script type="module">
     import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm';
-    import { BasicRenderer } from './renderer.js';
-    import { fromObjFile } from './obj-loader.js';
+    import { RaytraceRenderer } from './raytrace-renderer.js';
+    import { fromObjFile } from '../obj-loader.js';
 
-    const renderer = new BasicRenderer({
+    const renderer = new RaytraceRenderer({
       models: [
-        fromObjFile('/models/lightcube.obj', {position: [-0.125, 0.3, -2.75], scale: 0.25}),
+        fromObjFile('/models/lightcube.obj', {position: [-0.25, 0.45, -2.75], scale: [.5, 0.05, .5]}),
         fromObjFile('/models/cornell_box.obj', {position: [0, -0.5, -2]}),
         fromObjFile('/models/icosahedron_calc_normals.obj', {position: [-0.2, -0.3, -2.7], scale: 0.3}),
         fromObjFile('/models/cube.obj', {position: [0, -0.5, -2.5], scale: 0.3, rotateY: Math.PI / 6}),
+        // fromObjFile('/models/car.obj', {scale: 0.08, position: [0, -.2, -2.4]}),
+        // fromObjFile('/models/cube.obj', {position: [-0.15, -0.5, -2.5], scale: 0.3}),
       ]
     });
+    const gui = new GUI();
+    gui.add(renderer, 'frameAccumulator');
+
     renderer.start();
   </script>
 </head>
 <body>
   <div class="abs">
     <canvas></canvas>
+    <pre id="info"></pre>
   </div>
 </body>
 </html>

@@ -1,31 +1,36 @@
 import { glMatrix, mat4 } from 'gl-matrix';
-import { createManager } from './twgpu-lib.js';
-import { DefaultControls } from '../twgl/default-controls.js';
+import { createManager } from '../twgpu-lib.js';
+import { DefaultControls } from '../../twgl/default-controls.js';
 
 export class RaytraceRenderer {
   _mtlIndexes = {};
+  _previousTimestamp = 0;
+  _gpuDuration = 0;
+  _noop = () => {};
 
   constructor(scene) {
     glMatrix.setMatrixArrayType(Array);
     this.modelSources = scene?.models;
     this.frameAccumulator = false;
+    this.infoEl = document.querySelector('pre#info');
   }
 
   async start() {
     const promises = this.modelSources.map(src => src instanceof Promise ? src : Promise.resolve(src));
     this.models = await Promise.all(promises);
-    this.manager = await createManager();
+    this.manager = await createManager({computeToCanvas: true});
     await this.manager.resolveShader('raytracer');
     await this.manager.resolveShader('frame_accumulator');
     const materialsBuffer = this.packMaterials(); // materials have to go first, maybe combine to a single fn
     const trianglesBuffer = this.packModels();
+    const meshesBuffer = this.packMeshes();
     this.camera = new Camera;
     this.camToWorld = mat4.invert(new Float32Array(16), this.camera.matrix);
     this.manager.createPipeline('raytracer');
     this.ndcParamsBuffer = this.manager.bufferUniform(new Float32Array(this.camera.ndcParams));
     this.viewParamsBuffer = this.manager.bufferUniform(new Float32Array(this.camera.viewParams));
     this.camLocalToWorldBuffer = this.manager.bufferUniform(this.camToWorld);
-    this.rngSeedBuffer = this.manager.createEmptyBuffer(Float32Array.BYTES_PER_ELEMENT * 2, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    this.rngSeedBuffer = this.manager.createEmptyBuffer(Float32Array.BYTES_PER_ELEMENT * 2, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
     this.accumulatorTexture = this.manager.newFrameTexture();
     this.outTexture = this.manager.newFrameTexture();
     this.accumulatedFrameCount = new Float32Array([0]);
@@ -37,6 +42,7 @@ export class RaytraceRenderer {
       materials: { binding: 4, data: materialsBuffer },
       rngSeed: { binding: 6, data: this.rngSeedBuffer, },
       triangles: { binding: 7, data: trianglesBuffer, },
+      meshes: { binding: 8, data: meshesBuffer, },
     });
     this.manager.createUniformBindings();
 
@@ -52,6 +58,9 @@ export class RaytraceRenderer {
   }
 
   render(timestamp) {
+    const jsStart = performance.now();
+    const dT = timestamp - this._previousTimestamp;
+    this._previousTimestamp = timestamp;
     if (this.manager.resizeCanvasToDisplaySize()) {
       this.camera.updateViewParams();
       this.camera.changed = true;
@@ -60,7 +69,6 @@ export class RaytraceRenderer {
     if (changed || !this.frameAccumulator) {
       this.accumulatedFrameCount.set([0]);
     }
-    // mat4.invert(this.camToWorld, this.camera.matrix);
     mat4.copy(this.camToWorld, this.camera.matrix)
     this.manager.device.queue.writeBuffer(this.camLocalToWorldBuffer, 0, this.camToWorld);
     this.manager.device.queue.writeBuffer(this.rngSeedBuffer, 0, new Float32Array([Math.random() * 100, Math.random() * 100]));
@@ -80,6 +88,11 @@ export class RaytraceRenderer {
     }
 
     requestAnimationFrame(timestamp => this.render(timestamp));
+
+    const jsDuration = performance.now() - jsStart;
+    this.infoEl.textContent = `\
+fps: ${(1000 / dT).toFixed(1)}
+js: ${jsDuration.toFixed(1)}ms`;
   }
 
   packModels() {
@@ -95,23 +108,15 @@ export class RaytraceRenderer {
     const materialData = new Uint32Array(triangleCount * 2);
     let offset = 0;
     let triangleIndex = 0;
-    console.log(this.models)
     this.models.forEach(model => {
       let vertexIndex = 0;
       for (let i = 0; i < model.dereferencedVertices.length; i += 9) {
-        const mtlIndex = this.getMaterialIndex(model, vertexIndex);
         jsBuffer.set(model.dereferencedVertices.slice(i, i + 3), offset);
         jsBuffer.set(model.dereferencedVertices.slice(i + 3, i + 6), offset + 4);
         jsBuffer.set(model.dereferencedVertices.slice(i + 6, i + 9), offset + 8);
         jsBuffer.set(model.dereferencedNormals.slice(i, i + 3), offset + 12);
         jsBuffer.set(model.dereferencedNormals.slice(i + 3, i + 6), offset + 16);
         jsBuffer.set(model.dereferencedNormals.slice(i + 6, i + 9), offset + 20);
-        // set material index
-        if (mtlIndex != undefined) {
-          const materialDataOffset = triangleIndex * 2;
-          materialData.set([mtlIndex], materialDataOffset);
-          materialData.set([offset + 23], materialDataOffset + 1);
-        }
         offset += 24;
         triangleIndex++;
         vertexIndex += 3;
@@ -134,16 +139,36 @@ export class RaytraceRenderer {
     }
     gpuBuffer.unmap();
     return gpuBuffer;
-
   }
 
-  getMaterialIndex(model, i) {
-    for (const group of model.facetGroups) {
-      if (!group.materialName || group.startIndex > i || i >= group.startIndex + group.length) {
-        continue;
+  packMeshes() {
+    const size = this.models.reduce((total, model) => {
+      total += model.facetGroups.length;
+      return total;
+    }, 0) * 48;
+    const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST;
+    const gpuBuffer = this.manager.device.createBuffer({size, usage, mappedAtCreation: true});
+    const mappedRange = gpuBuffer.getMappedRange();
+    const f32WriteArray = new Float32Array(mappedRange);
+    const u32WriteArray = new Uint32Array(mappedRange);
+    let offset = 0;
+    let modelTriangleOffset = 0;
+    for (const model of this.models) {
+      const trianglesInModel = model.vertexIndexes.length / 3; // add this to obj-loader
+      for (const mesh of model.facetGroups) {
+        u32WriteArray.set([mesh.triangleOffset + modelTriangleOffset, mesh.triangleCount + mesh.triangleOffset + modelTriangleOffset, this.getMaterialIndex(mesh)], offset);
+        f32WriteArray.set(mesh.boundingBox.min, offset + 4);
+        f32WriteArray.set(mesh.boundingBox.max, offset + 8);
+        offset += 12;
       }
-      return this._mtlIndexes[group.materialName];
+      modelTriangleOffset += trianglesInModel;
     }
+    gpuBuffer.unmap();
+    return gpuBuffer;
+  }
+
+  getMaterialIndex(mesh) {
+    return this._mtlIndexes[mesh.materialName];
   }
 
   packMaterials() {
@@ -155,12 +180,10 @@ export class RaytraceRenderer {
     );
     const orderedNames = materials.keys().toArray();
     const orderedMaterials = materials.values().toArray();
-    for (let i = 0; i < orderedNames.length; i++) {
-      this._mtlIndexes[orderedNames[i]] = i;
-    }
     const jsBuffer = new Float32Array(12 * materials.size);
     let offset = 0;
     for (let i = 0; i < orderedMaterials.length; i++) {
+      this._mtlIndexes[orderedNames[i]] = i;
       const mtl = orderedMaterials[i];
       // maybe? mix Kd and Ka or something
       if (mtl.Kd) {
