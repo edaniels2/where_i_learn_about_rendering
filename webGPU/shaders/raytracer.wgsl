@@ -15,6 +15,7 @@ struct Material {
   color: vec4f,
   emitColor: vec4f,
   emitIntensity: f32,
+  reflection: f32,
 };
 
 struct Mesh {
@@ -49,16 +50,14 @@ const raysPerPixel = 1;
 @group(0) @binding(2) var<uniform> viewParams: vec3f;
 @group(0) @binding(3) var<uniform> camLocalToWorld: mat4x4f;
 @group(0) @binding(4) var<storage, read> materials: array<Material>;
-@group(0) @binding(5) var<storage, read> spheres: array<Sphere>;
-@group(0) @binding(6) var<uniform> rngSeed: vec2f;
+// @group(0) @binding(5) var<storage, read> spheres: array<Sphere>;
+@group(0) @binding(6) var<uniform> rngSeed: u32;
 @group(0) @binding(7) var<storage, read> triangles: array<Triangle>;
 @group(0) @binding(8) var<storage, read> meshes: array<Mesh>;
 
 @compute @workgroup_size(1) 
 fn main(@builtin(global_invocation_id) id: vec3u) {
-  let rngX = f32(id.x) + 0.5;
-  let rngY = f32(id.y) + 0.5;
-  var rngState = rngSeed + vec2f(rngY) * vec2f(rngX);
+  var rngState = rngSeed * 719393 + (id.x * id.y + id.x);
   let ndc: vec2f = (vec2f(id.xy)) * ndcParams;
   let screen: vec2f = vec2f(2 * ndc.x - 1, 1 - 2 * ndc.y);
   let viewPointLocal: vec3f = vec3f(screen, -1.0) * viewParams;
@@ -71,21 +70,30 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
   textureStore(renderTexture, id.xy, color);
 }
 
-fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, vec2f>) -> vec4f {
-  var hitInfo = HitInfo(false, far, vec3f(0), vec3f(0), Material(vec4f(0), vec4f(0), 0.0));
+fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, u32>) -> vec4f {
   var rayColor = vec4f(1);
   var incomingLight = vec4f(0);
-  for (var i: u32 = 0; i < maxBounceCount; i++) {
+  var hitInfo = HitInfo(false, far, vec3f(0), vec3f(0), Material(vec4f(0), vec4f(0), 0.0, 0));
+  for (var i: u32 = 0; i <= maxBounceCount; i++) {
     calculateRayCollision(rayPtr, &hitInfo);
     if (hitInfo.hit) {
+      let diffuseDir = normalize(hitInfo.normal + randomDirection(rngState));
+      let specularDir = reflect((*rayPtr).direction, hitInfo.normal);
+      (*rayPtr).direction = normalize(lerp(diffuseDir, specularDir, hitInfo.material.reflection));
       (*rayPtr).origin = hitInfo.hitPoint;
-      (*rayPtr).direction = normalize(hitInfo.normal + randNormalDistrubution(rngState));
       incomingLight += hitInfo.material.emitColor * hitInfo.material.emitIntensity * rayColor;
       rayColor *= hitInfo.material.color;
+      let p = max(max(rayColor.r, rayColor.g), rayColor.b);
+      if (p < 1e-6) {
+        // stop if there's not any appreciable light to contribute (probably should randomize this)
+        break;
+      }
+      // rayColor *= 1.0 / p; // sebastian does this, not sure why. it basically scales all colors so their max component is 1
     } else {
       break;
     }
     hitInfo.hit = false;
+    hitInfo.dist = far;
   }
   return incomingLight;
 }
@@ -128,18 +136,24 @@ fn rayTriangleIntersection(rayPtr: ptr<function, Ray>, tri: Triangle, material: 
   }
 }
 
-fn rand(rngState: ptr<function, vec2f>) -> vec3f {
-	var p3 = fract(vec3((*rngState).xyx) * vec3(.1031, .1030, .0973));
-  p3 += dot(p3, p3.yxz+33.33);
-  let result = fract((p3.xxy+p3.yzz)*p3.zyx);
-  *rngState += p3.zx * p3.y;
-  return result;
+fn rand1d(rngState: ptr<function, u32>) -> f32 {
+  *rngState *= 747796405 + 2891336453;
+  var result = ((*rngState >> ((*rngState >> 28) + 4)) ^ *rngState) * 277803737;
+  result = (result >> 22) ^ result;
+  return f32(result) / 4294967295.0;
 }
 
-fn randNormalDistrubution(rngState: ptr<function, vec2f>) -> vec3f {
-  let a = 2.0 * 3.1415926 * rand(rngState);
-  let b = sqrt(-2.0 * log(rand(rngState)));
+fn randNormalDistrubution(rngState: ptr<function, u32>) -> f32 {
+  let a = 2.0 * 3.1415926 * rand1d(rngState);
+  let b = sqrt(-2.0 * log(rand1d(rngState)));
   return b * cos(a);
+}
+
+fn randomDirection(rngState: ptr<function, u32>) -> vec3f {
+  let x = randNormalDistrubution(rngState);
+  let y = randNormalDistrubution(rngState);
+  let z = randNormalDistrubution(rngState);
+  return normalize(vec3(x, y, z));
 }
 
 fn intersectsBoundingBox(rayPtr: ptr<function, Ray>, min: vec3f, max: vec3f) -> bool {
@@ -179,4 +193,8 @@ fn intersectsBoundingBox(rayPtr: ptr<function, Ray>, min: vec3f, max: vec3f) -> 
   }
 
   return true;
+}
+
+fn lerp(a: vec3f, b: vec3f, t: f32) -> vec3f {
+  return a + (b - a) * t;
 }

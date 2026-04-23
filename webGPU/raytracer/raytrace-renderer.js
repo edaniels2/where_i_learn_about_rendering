@@ -1,18 +1,21 @@
 import { glMatrix, mat4 } from 'gl-matrix';
 import { createManager } from '../twgpu-lib.js';
-import { DefaultControls } from '../../twgl/default-controls.js';
+import { DefaultControls } from '../../default-controls.js';
 
 export class RaytraceRenderer {
   _mtlIndexes = {};
   _previousTimestamp = 0;
   _gpuDuration = 0;
   _noop = () => {};
+  _frameCount = 0;
 
   constructor(scene) {
     glMatrix.setMatrixArrayType(Array);
     this.modelSources = scene?.models;
-    this.frameAccumulator = false;
+    this.frameAccumulator = true;
+    this.pauseRendering = false;
     this.infoEl = document.querySelector('pre#info');
+    this.fps = new RollingAverage(60)
   }
 
   async start() {
@@ -58,8 +61,13 @@ export class RaytraceRenderer {
   }
 
   render(timestamp) {
+    if (this.pauseRendering) {
+      this.camera.pause();
+      return requestAnimationFrame(timestamp => this.render(timestamp));
+    }
+    this.camera.resume();
     const jsStart = performance.now();
-    const dT = timestamp - this._previousTimestamp;
+    this.fps.addSample(1000 / (timestamp - this._previousTimestamp));
     this._previousTimestamp = timestamp;
     if (this.manager.resizeCanvasToDisplaySize()) {
       this.camera.updateViewParams();
@@ -71,7 +79,7 @@ export class RaytraceRenderer {
     }
     mat4.copy(this.camToWorld, this.camera.matrix)
     this.manager.device.queue.writeBuffer(this.camLocalToWorldBuffer, 0, this.camToWorld);
-    this.manager.device.queue.writeBuffer(this.rngSeedBuffer, 0, new Float32Array([Math.random() * 100, Math.random() * 100]));
+    this.manager.device.queue.writeBuffer(this.rngSeedBuffer, 0, new Uint32Array([this._frameCount++]));
 
     if (this.frameAccumulator) {
       this.manager.device.queue.writeBuffer(this.accumulatedFrameCountBuffer, 0, this.accumulatedFrameCount);
@@ -91,7 +99,7 @@ export class RaytraceRenderer {
 
     const jsDuration = performance.now() - jsStart;
     this.infoEl.textContent = `\
-fps: ${(1000 / dT).toFixed(1)}
+fps: ${this.fps}
 js: ${jsDuration.toFixed(1)}ms`;
   }
 
@@ -195,6 +203,9 @@ js: ${jsDuration.toFixed(1)}ms`;
       if (mtl.i) {
         jsBuffer.set([mtl.i], offset + 8);
       }
+      if (mtl.reflection) {
+        jsBuffer.set([mtl.reflection], offset + 9);
+      }
       offset += 12;
     }
     return this.manager.bufferData(jsBuffer, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
@@ -218,5 +229,27 @@ class Camera extends DefaultControls {
     this.planeWidth = this.planeHeight * this.aspect;
     this.viewParams = [this.planeWidth, this.planeHeight, this.distToPlane];
     this.ndcParams = [1 / canvas.width, 1 / canvas.height];
+  }
+}
+
+class RollingAverage {
+  constructor(sampleCount, outFractionDigits = 2) {
+    this.sampleCount = sampleCount;
+    this._ptr = 0;
+    this._samples = [];
+    this._outFractionDigits = outFractionDigits;
+  }
+
+  addSample(value) {
+    const i = this._ptr++ % this.sampleCount;
+    this._samples[i] = value;
+  }
+
+  toString() {
+    const avg = this._samples.reduce((sum, value) => {
+      sum += value;
+      return sum;
+    }, 0) / this._samples.length;
+    return avg.toFixed(this._outFractionDigits);
   }
 }

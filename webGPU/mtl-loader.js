@@ -22,7 +22,7 @@ export class MtlFile {
         materials[name] = currentMtl;
       } else {
         let [prop, ...values] = line.split(/\s+/);
-        if (['Ka', 'Kd', 'Ks', 'Ke', 'i', 'd', 'Tr', 'Ns', 'illum', 'map_Ka', 'map_Kd'].includes(prop)) {
+        if (['Ka', 'Kd', 'Ks', 'Ke', 'i', 'd', 'Tr', 'Ns', 'illum', 'map_Ka', 'map_Kd', 'reflection'].includes(prop)) {
           if (['map_Ka', 'map_Kd'].includes(prop)) {
             values = values.filter(s => s.trim()).map(value => `${this.dir}/${value}`);
           } else if (['texMode'].includes(prop)) {
