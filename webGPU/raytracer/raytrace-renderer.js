@@ -15,7 +15,7 @@ export class RaytraceRenderer {
     this.frameAccumulator = true;
     this.pauseRendering = false;
     this.infoEl = document.querySelector('pre#info');
-    this.fps = new RollingAverage(60)
+    this.fps = new RollingAverage(60);
   }
 
   async start() {
