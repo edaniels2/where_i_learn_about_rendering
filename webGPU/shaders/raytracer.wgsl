@@ -1,3 +1,12 @@
+struct vOut {
+  @builtin(position) clip_position: vec4f,
+  @location(0) vn: vec3f,
+  @location(1) mtlColor: vec4f,
+  @location(2) mtlEmit: vec4f,
+  @location(3) mtlEmitIntensity: f32,
+  @location(4) mtlReflection: f32,
+};
+
 struct Ray {
   origin: vec3f,
   direction: vec3f,
@@ -28,46 +37,63 @@ struct Mesh {
 
 struct Triangle {
   A: vec3f,
-  B: vec3f,
-  C: vec3f,
   normA: vec3f,
+  B: vec3f,
   normB: vec3f,
+  C: vec3f,
   normC: vec3f,
 };
 
-struct Sphere {
+struct Vertex {
   position: vec3f,
-  radius: f32,
-  material: Material,
+  normal: vec3f,
+};
+
+struct StaticUniforms {
+  cameraToWorld: mat4x4f,
+  frustrumParams: vec3f,
+  rngSeed: u32,
+  ndcParams: vec2f,
 };
 
 const far = 1e6;
 const maxBounceCount = 4;
 const raysPerPixel = 1;
 
-@group(0) @binding(0) var renderTexture: texture_storage_2d<bgra8unorm, write>;
-@group(0) @binding(1) var<uniform> ndcParams: vec2f;
-@group(0) @binding(2) var<uniform> viewParams: vec3f;
-@group(0) @binding(3) var<uniform> camLocalToWorld: mat4x4f;
-@group(0) @binding(4) var<storage, read> materials: array<Material>;
-// @group(0) @binding(5) var<storage, read> spheres: array<Sphere>;
-@group(0) @binding(6) var<uniform> rngSeed: u32;
-@group(0) @binding(7) var<storage, read> triangles: array<Triangle>;
-@group(0) @binding(8) var<storage, read> meshes: array<Mesh>;
+@group(0) @binding(0) var<storage, read> vertices: array<Vertex>;
+@group(0) @binding(1) var<storage, read> meshes: array<Mesh>;
+@group(0) @binding(2) var<storage, read> materials: array<Material>;
+@group(0) @binding(3) var<uniform> staticUniforms: StaticUniforms;
 
-@compute @workgroup_size(1) 
-fn main(@builtin(global_invocation_id) id: vec3u) {
-  var rngState = rngSeed * 719393 + (id.x * id.y + id.x);
-  let ndc: vec2f = (vec2f(id.xy)) * ndcParams;
+@vertex fn vs_main(
+  @location(0) position: vec4f,
+  @builtin(vertex_index) vertexIndex: u32,
+  @builtin(instance_index) materialIndex: u32,
+) -> vOut {
+  var out: vOut;
+  let vertex = vertices[vertexIndex];
+  let mtl = materials[materialIndex];
+  out.clip_position = position;
+  out.vn = vertex.normal;
+  out.mtlColor = mtl.color;
+  out.mtlEmit = mtl.emitColor;
+  out.mtlEmitIntensity = mtl.emitIntensity;
+  out.mtlReflection = mtl.reflection;
+  return out;
+}
+
+@fragment fn fs_main(inputs: vOut) -> @location(0) vec4f {
+  let pixelX = u32(inputs.clip_position.x);
+  let pixelY = u32(inputs.clip_position.y);
+  var rngState = staticUniforms.rngSeed * 719393 + (pixelX* pixelY + pixelX);
+  let ndc: vec2f = (vec2f(inputs.clip_position.xy)) * staticUniforms.ndcParams;
   let screen: vec2f = vec2f(2 * ndc.x - 1, 1 - 2 * ndc.y);
-  let viewPointLocal: vec3f = vec3f(screen, -1.0) * viewParams;
-  let viewPoint: vec3f = (camLocalToWorld * vec4(viewPointLocal, 1.0)).xyz;
-  let rayOrigin: vec3f = (camLocalToWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  let viewPointLocal: vec3f = vec3f(screen, -1.0) * staticUniforms.frustrumParams;
+  let viewPoint: vec3f = (staticUniforms.cameraToWorld * vec4(viewPointLocal, 1.0)).xyz;
+  let rayOrigin: vec3f = (staticUniforms.cameraToWorld * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   let rayDirection: vec3f = normalize(viewPoint - rayOrigin);
   var ray = Ray(rayOrigin, rayDirection);
-  let color = vec4f(trace(&ray, &rngState).xyz, 1);
-
-  textureStore(renderTexture, id.xy, color);
+  return vec4f(trace(&ray, &rngState).xyz, 1);
 }
 
 fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, u32>) -> vec4f {
@@ -101,10 +127,19 @@ fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, u32>) -> vec4f {
 fn calculateRayCollision(rayPtr: ptr<function, Ray>, hitInfoPtr: ptr<function, HitInfo>) {
   let numMeshes = arrayLength(&meshes);
   for (var i: u32 = 0; i < numMeshes; i++) {
-    for (var j: u32 = meshes[i].firstTriangle; j < meshes[i].nextMeshFirstTriangle; j++) {
-      let tri = triangles[j];
+    if (intersectsBoundingBox(rayPtr, meshes[i].boxMin, meshes[i].boxMax)) {
       let material = materials[meshes[i].materialIndex];
-      if (intersectsBoundingBox(rayPtr, meshes[i].boxMin, meshes[i].boxMax)) {
+      for (var j: u32 = meshes[i].firstTriangle; j < meshes[i].nextMeshFirstTriangle; j++) {
+        // refactor meshes to index by vertex instead of triangle
+        let vtxIndex = j * 3;
+        let tri = Triangle(
+          vertices[vtxIndex].position,
+          vertices[vtxIndex].normal,
+          vertices[vtxIndex + 1].position,
+          vertices[vtxIndex + 1].normal,
+          vertices[vtxIndex + 2].position,
+          vertices[vtxIndex + 2].normal,
+        );
         rayTriangleIntersection(rayPtr, tri, material, hitInfoPtr);
       }
     }
