@@ -127,19 +127,19 @@ fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, u32>) -> vec4f {
 fn calculateRayCollision(rayPtr: ptr<function, Ray>, hitInfoPtr: ptr<function, HitInfo>) {
   let numMeshes = arrayLength(&meshes);
   for (var i: u32 = 0; i < numMeshes; i++) {
-    for (var j: u32 = meshes[i].firstTriangle; j < meshes[i].nextMeshFirstTriangle; j++) {
-      // refactor meshes to index by vertex instead of triangle
-      let vtxIndex = j * 3;
-      let tri = Triangle(
-        vertices[vtxIndex].position,
-        vertices[vtxIndex].normal,
-        vertices[vtxIndex + 1].position,
-        vertices[vtxIndex + 1].normal,
-        vertices[vtxIndex + 2].position,
-        vertices[vtxIndex + 2].normal,
-      );
+    if (intersectsBoundingBox(rayPtr, meshes[i].boxMin, meshes[i].boxMax)) {
       let material = materials[meshes[i].materialIndex];
-      if (intersectsBoundingBox(rayPtr, meshes[i].boxMin, meshes[i].boxMax)) {
+      for (var j: u32 = meshes[i].firstTriangle; j < meshes[i].nextMeshFirstTriangle; j++) {
+        // refactor meshes to index by vertex instead of triangle
+        let vtxIndex = j * 3;
+        let tri = Triangle(
+          vertices[vtxIndex].position,
+          vertices[vtxIndex].normal,
+          vertices[vtxIndex + 1].position,
+          vertices[vtxIndex + 1].normal,
+          vertices[vtxIndex + 2].position,
+          vertices[vtxIndex + 2].normal,
+        );
         rayTriangleIntersection(rayPtr, tri, material, hitInfoPtr);
       }
     }

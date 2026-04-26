@@ -7,9 +7,9 @@ import { DefaultControls } from '../../default-controls.js';
 export class HybridRenderer {
   /**@type{StructuredBuffer}*/ _staticUniforms;
   /**@type{ShaderInfo}*/ _shaderInfo;
-  // /**@type{StructuredBuffer}*/ _modelToWorld; // i think i can get away without this as long as all the models are static. obj-loader transforms the vertices according to initial params before upload to the gpu
   _accumulatedFrameCount = 0;
   _accumulatorBindGroup0;
+  _accumulatorShaderInfo;
   _materialIndexes = new Map();
   _meshInstanceInfo = [];
   _blendWeight = new Float32Array(1);
@@ -37,8 +37,7 @@ export class HybridRenderer {
     console.log(this.models);
     this.manager = await createManager({canvasTextureUsage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC});
     this._shaderInfo = (await this.manager.resolveShader('hybrid')).definitions;
-    const frameAccShaderInfo = (await this.manager.resolveShader('frame_accumulator')).definitions;
-    console.log(frameAccShaderInfo)
+    this._accumulatorShaderInfo = (await this.manager.resolveShader('frame_accumulator')).definitions;
     this._renderPipeline = this.manager.createPipeline('hybrid', {
       buffers: [{
         arrayStride: 8,
@@ -88,28 +87,7 @@ export class HybridRenderer {
         {binding: this._shaderInfo.uniforms.staticUniforms.binding, resource: this._staticUniformsGpuBuffer},
       ]
     });
-
-    this.previousFrameTexture = this.manager.device.createTexture({
-      label: 'previousFrameTexture',
-      size: [this.manager.canvas.width, this.manager.canvas.height],
-      format: this.manager.presentationFormat,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-    });
-    this.renderTexture = this.manager.device.createTexture({
-      label: 'renderTexture',
-      size: [this.manager.canvas.width, this.manager.canvas.height],
-      format: this.manager.presentationFormat,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    });
-    this._accumulatorBindGroup0 = this.manager.device.createBindGroup({
-      label: 'accumulatorBindGroup',
-      layout: this._accumulatorPipeline.getBindGroupLayout(0),
-      entries: [
-        {binding: frameAccShaderInfo.textures.current.binding, resource: this.renderTexture},
-        {binding: frameAccShaderInfo.textures.accumulated.binding, resource: this.previousFrameTexture},
-        {binding: frameAccShaderInfo.uniforms.weight.binding, resource: this._blendWeightGpuBuffer},
-      ]
-    })
+    this.createTextures();
 
     requestAnimationFrame(t => this.render(t));
   }
@@ -124,7 +102,7 @@ export class HybridRenderer {
     this.fps.addSample(1000 / (timestamp - this._previousTimestamp));
     this._previousTimestamp = timestamp;
     if (this.manager.resizeCanvasToDisplaySize()) {
-      this.manager.handleResize();
+      this.createTextures();
       this.camera.updateViewParams();
       this.camera.changed = true;
     }
@@ -157,7 +135,6 @@ export class HybridRenderer {
           bindGroups: [this._accumulatorBindGroup0],
           vertexBuffer: this.vertexBuffer,
           numVertices: 6,
-          // target: [{view: this.manager.ctx.getCurrentTexture().createView(), loadOp: 'load'},]
         }
       ], this.previousFrameTexture);
     }
@@ -270,6 +247,32 @@ js: ${jsDuration.toFixed(1)}ms`;
     });
     this.manager.device.queue.writeBuffer(vertexBuffer, 0, vertexData);
     return vertexBuffer;
+  }
+
+  createTextures() {
+    this.previousFrameTexture?.destroy();
+    this.renderTexture?.destroy();
+    this.previousFrameTexture = this.manager.device.createTexture({
+      label: 'previousFrameTexture',
+      size: [this.manager.canvas.width, this.manager.canvas.height],
+      format: this.manager.presentationFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.renderTexture = this.manager.device.createTexture({
+      label: 'renderTexture',
+      size: [this.manager.canvas.width, this.manager.canvas.height],
+      format: this.manager.presentationFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    this._accumulatorBindGroup0 = this.manager.device.createBindGroup({
+      label: 'accumulatorBindGroup',
+      layout: this._accumulatorPipeline.getBindGroupLayout(0),
+      entries: [
+        {binding: this._accumulatorShaderInfo.textures.current.binding, resource: this.renderTexture},
+        {binding: this._accumulatorShaderInfo.textures.accumulated.binding, resource: this.previousFrameTexture},
+        {binding: this._accumulatorShaderInfo.uniforms.weight.binding, resource: this._blendWeightGpuBuffer},
+      ]
+    });
   }
 }
 
