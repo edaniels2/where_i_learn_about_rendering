@@ -1,18 +1,18 @@
 import * as twgl from './twgl/twgl_lib/twgl-full.module.js'; // update to use gl-matrix
 
 export class DefaultControls {
-  constructor(viewMatrix, unlockHeight = false, unlockUp = false) {
+  constructor(viewMatrix, options /* unlockHeight = false, unlockUp = false */) {
     this.time = 0;
     this.step = 0;
     this.changed = true;
-    this.matrix = twgl.m4.copy(viewMatrix);
+    this.matrix = options?.matrixCopy ? twgl.m4.copy(viewMatrix) : viewMatrix;
     this.movement = this.initializeKeyboardEvents();
     this.looking = this.initializePointerEvents();
     const dir = twgl.v3.negate(twgl.m4.getAxis(this.matrix, 2));
     this.elev = Math.atan2(dir[1], -dir[2]); // maybe
     this.az = Math.atan2(dir[0], -dir[2]);
-    this.lockHeight = !unlockHeight;
-    this.lockUp = !unlockUp;
+    this.lockHeight = !options?.unlockHeight;
+    this.lockUp = !options?.unlockUp;
     this._paused = false;
   }
 

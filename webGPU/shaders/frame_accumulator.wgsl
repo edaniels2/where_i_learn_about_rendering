@@ -1,13 +1,16 @@
-@group(0) @binding(0) var out: texture_storage_2d<bgra8unorm, write>;
-@group(0) @binding(1) var current: texture_2d<f32>;
-@group(0) @binding(2) var accumulated: texture_2d<f32>;
-@group(0) @binding(3) var<uniform> accumulatedFrameCount: f32;
+@group(0) @binding(0) var current: texture_2d<f32>;
+@group(0) @binding(1) var accumulated: texture_2d<f32>;
+@group(0) @binding(2) var<uniform> weight: f32;
 
-@compute @workgroup_size(1) 
-fn main(@builtin(global_invocation_id) id: vec3u) {
-  let newColor: vec4f = textureLoad(current, id.xy, 0);
-  let accumulatedColor: vec4f = textureLoad(accumulated, id.xy, 0);
-  let weight = 1.0 / (accumulatedFrameCount + 1.0); // control with a uniform?
-  let color = accumulatedColor * (1.0 - weight) + newColor * weight;
-  textureStore(out, id.xy, color);
+@vertex
+fn vs_main(@location(0) position: vec4f) -> @builtin(position) vec4f {
+  return position;
+}
+
+@fragment
+fn fs_main(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  let texCoords = vec2u(position.xy);
+  let newColor: vec4f = textureLoad(current, texCoords, 0);
+  let accumulatedColor: vec4f = textureLoad(accumulated, texCoords, 0);
+  return accumulatedColor * (1.0 - weight) + newColor * weight;
 }

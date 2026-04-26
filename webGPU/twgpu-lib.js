@@ -1,6 +1,9 @@
 /**
  * @typedef { Float32Array | Int8Array | Int16Array | Int32Array } TypedArray
 */
+import {
+  makeShaderDataDefinitions,
+} from 'webgpu-utils';
 
 export async function createManager(options) { // typedef the options
   /**@type{HTMLCanvasElement}*/const canvas = options?.canvas || document.querySelector('canvas');
@@ -23,7 +26,8 @@ export async function createManager(options) { // typedef the options
   }
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   const device = await adapter?.requestDevice();
-  return new Manager({canvas, device, presentationFormat});
+  const usage = options?.canvasTextureUsage ?? GPUTextureUsage.RENDER_ATTACHMENT;
+  return new Manager({canvas, device, presentationFormat, usage});
 }
 
 export class Manager {
@@ -41,7 +45,6 @@ export class Manager {
     this.canvas = settings.canvas;
     this.device = settings.device;
     this.presentationFormat = settings.presentationFormat || 'rgba8unorm';
-    this.presentationFormat = 'rgba8unorm';
     this.ctx = this.canvas.getContext('webgpu');
     this.ctx.configure({
       device: this.device,
@@ -64,20 +67,7 @@ export class Manager {
       { width: 1, height: 1 }
     );
     this.resizeCanvasToDisplaySize();
-    this.handleResize();
-  }
-
-  handleResize() {
-    // recreate this on resize
-    const depthTexture = this.device.createTexture({
-      size: [this.canvas.width, this.canvas.height, 1],
-      dimension: '2d',
-      format: 'depth32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      sampleCount: 4
-    });
-    this.depthTextureView = depthTexture.createView();
-    this.renderDescription = {
+    this.defaultRenderDescription = {
       colorAttachments: [
         {
           view: null,
@@ -86,33 +76,21 @@ export class Manager {
           storeOp: 'store'
         },
       ],
-      depthStencilAttachment: {
-        view: this.depthTextureView,
-        depthClearValue: 1,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-        stencilClearValue: 0,
-        stencilLoadOp: 'clear',
-        stencilStoreOp: 'store',
-      },
-    };
+    }
   }
 
   /**
    * 
    */
   createPipeline(shaderName, options) {
-    if (!this._attributesInfo.length) {
-      throw new Error('Set up vertex attributes first (createVertexAttributeBuffer)');
-    }
-    const shaderModule = this.getShader(shaderName);
+    const shaderModule = this.getShaderModule(shaderName);
     const format = options?.outputFormat || this.presentationFormat;
     const topology = options?.topology || 'triangle-list';
     const frontFace = options?.winding || 'ccw';
     const cullMode = options?.cullMode || 'back';
-    const buffers = this._attributesInfo.map(info => {
-      return info.bufferDescriptor
-    });
+    const buffers = options?.buffers;
+    const blend = options?.blend;
+    const targets = options?.targets ?? [{ format, blend }];
     const pipeline = this.device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -121,20 +99,12 @@ export class Manager {
       },
       fragment: {
         module: shaderModule,
-        targets: [{ format }],
+        targets,
       },
       primitive: { topology, frontFace, cullMode },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: 'depth32float',
-      },
-      multisample: { count: 4 },
+      // multisample: { count: 4 },
     });
-    const bindGroupLayout = pipeline.getBindGroupLayout(0);
-    this.bindGroupLayout = bindGroupLayout;
     this._pipelines.set(options?.name || shaderName, pipeline);
-    this.createUniformBindings(options?.objectGroups);
     return pipeline;
   }
 
@@ -174,39 +144,75 @@ export class Manager {
  /***************** I'm more or less happy with what's above, but want to give more thought to everything below *******************/
 
 
-  singlePassRender(pipeline, renderPassGroups) { // maybe move renderPassGroups to a member var
-    this.ensureMultisampleTexture();
-    const passPipeline = typeof pipeline === 'string' ?
-      this._pipelines.get(pipeline) :
-      (pipeline ?? this._pipelines.values().next().value);
-    const colorTexture = this.ctx.getCurrentTexture();
-    this.renderDescription.colorAttachments[0].view = this._multisampleTexture.createView(); // reuse or create each time?
-    this.renderDescription.colorAttachments[0].resolveTarget = colorTexture.createView(); // reuse or create each time?
-    const command = this.device.createCommandEncoder(); // reuse?
-    const pass = command.beginRenderPass(this.renderDescription);
+  singlePassRender(settings) {
+    // this.ensureMultisampleTexture();
+    const passPipeline = typeof settings.pipeline === 'string' ?
+      this._pipelines.get(settings.pipeline) :
+      (settings.pipeline ?? this._pipelines.values().next().value);
+    const canvasTexture = this.ctx.getCurrentTexture();
+    // this.defaultRenderDescription.colorAttachments[0].view = this._multisampleTexture.createView();
+    // this.defaultRenderDescription.colorAttachments[0].resolveTarget = canvasTexture.createView();
+    this.defaultRenderDescription.colorAttachments[0].view = canvasTexture.createView();
+    const command = this.device.createCommandEncoder();
+    const pass = command.beginRenderPass(this.defaultRenderDescription);
     pass.setViewport(0, 0, this.canvas.width, this.canvas.height, 0, 1);
     pass.setPipeline(passPipeline);
-    for (const info of this._attributesInfo) {
-      for (const attribute of info.attributeDescriptors) {
-        pass.setVertexBuffer(attribute.shaderLocation, info.buffer, attribute.offset, attribute.size);
-      }
+
+    settings.meshes ??= [
+      {firstVertex: 0, vertexCount: settings.numVertices, materialIndex: 0}
+    ];
+
+    for (let i = 0; i < settings.bindGroups.length; i++) {
+      pass.setBindGroup(i, settings.bindGroups[i]);
     }
-    if (this._drawIndexed) {
-      for (const info of this._indexBuffersInfo) {
-        pass.setIndexBuffer(info.buffer, info.format);
-        pass.drawIndexed(info.length);
-      }
-    } else if (renderPassGroups) {
-      for (const group of renderPassGroups) {
-        pass.setBindGroup(0, group.bindGroup);
-        pass.draw(group.length, 1, group.startIndex);
-      }
-    } else {
-      pass.setBindGroup(0, group.bindGroup);
-      pass.draw(this._vertexCount /* , instanceCount, firstVertex, firstInstance */);
+    if (settings.vertexBuffer) {
+      pass.setVertexBuffer(0, settings.vertexBuffer);
     }
+    for (const mesh of settings.meshes) {
+      // using (hijacking) instance index as a material index since all materials are in a storage buffer already.
+      // no idea if this is a common use case but I like that it saves from swapping bind groups for every draw
+      pass.draw(mesh.vertexCount, 1, mesh.firstVertex, mesh.materialIndex);
+    }
+
     pass.end();
     this.device.queue.submit([command.finish()]);
+  }
+
+  multiPassRender(passes, copyToTexture) {
+    const canvasTexture = this.ctx.getCurrentTexture();
+    const command = this.device.createCommandEncoder();
+    for (const info of passes) {
+      const pass = command.beginRenderPass(renderDescription(info.target ?? canvasTexture.createView()));
+      pass.setViewport(0, 0, this.canvas.width, this.canvas.height, 0, 1);
+      pass.setPipeline(info.pipeline);
+      for (let i = 0; i < info.bindGroups.length; i++) {
+        pass.setBindGroup(i, info.bindGroups[i]);
+      }
+      if (info.vertexBuffer) {
+        pass.setVertexBuffer(0, info.vertexBuffer);
+      }
+      pass.draw(info.numVertices);
+      pass.end();
+    }
+    if (copyToTexture) {
+      command.copyTextureToTexture(
+        { texture: canvasTexture },
+        { texture: copyToTexture },
+        { width: this.canvas.width, height: this.canvas.height }
+      );
+    }
+    this.device.queue.submit([command.finish()]);
+
+    function renderDescription(target) {
+      const targets = Array.isArray(target) ? target : [target];
+      const colorAttachments = [];
+      for (const descriptor of targets) {
+        const view = descriptor.view ?? descriptor;
+        const loadOp = descriptor.loadOp ?? 'clear'
+        colorAttachments.push({view, loadOp, storeOp: 'store'});
+      }
+      return { colorAttachments };
+    }
   }
 
   setPerFrameUniforms(entries) { // a comprehensive typedef will be especially helpful here
@@ -266,11 +272,6 @@ export class Manager {
   writeBuffer(gpuBuffer, offset, jsBuffer) {
     this.device.queue.writeBuffer(gpuBuffer, offset, jsBuffer);
   }
-
-  // updateUniform(name, data, offset = 0) {
-  //   const info = this._perGroupUniformDescriptors.get(name);
-  //   this.device.queue.writeBuffer(info.data, offset, data);
-  // }
 
   createVertexAttributeBuffer(data, descriptors = [], format = 'float32x3') {
     /** @type{number} */let arrayStride = 0;
@@ -370,22 +371,32 @@ export class Manager {
     }
   }
 
-  getShader(/**@type{string}*/name) {
-    let module = this._shaderModules.get(name);
-    if (!module) {
+  getShaderModule(/**@type{string}*/name) {
+    let shaderInfo = this._shaderModules.get(name);
+    if (!shaderInfo) {
       throw new Error(`Shader code '${name}' has not been resolved`);
     }
-    return module;
+    return shaderInfo.module;
+  }
+
+  getShaderDefinitions(/**@type{string}*/name) {
+    let shaderInfo = this._shaderModules.get(name);
+    if (!shaderInfo) {
+      throw new Error(`Shader code '${name}' has not been resolved`);
+    }
+    return shaderInfo.definitions;
   }
 
   async resolveShader(/**@type{string}*/name) {
-    let module = this._shaderModules.get(name);
-    if (!module) {
+    let shaderInfo = this._shaderModules.get(name);
+    if (!shaderInfo) {
       const code = await (await fetch(`/webGPU/shaders/${name}.wgsl`)).text();
-      module = this.device.createShaderModule({ code });
-      this._shaderModules.set(name, module);
+      const module = this.device.createShaderModule({ code });
+      const definitions = makeShaderDataDefinitions(code);
+      shaderInfo = { module, definitions };
+      this._shaderModules.set(name, shaderInfo);
     }
-    return module;
+    return shaderInfo;
   }
 }
 
@@ -398,7 +409,7 @@ export class ComputeToCanvasManager extends Manager {
     this._pipelines.set(name, this.device.createComputePipeline({
       label: name,
       layout: 'auto',
-      compute: { module: this.getShader(shaderName), entryPoint },
+      compute: { module: this.getShaderModule(shaderName), entryPoint },
     }));
   }
 
@@ -483,6 +494,14 @@ export class ComputeToCanvasManager extends Manager {
       // pretty sure there's a package that will parse the shader for uniform bindings and struct packing help
     }
     return module;
+  }
+
+  getShaderModule(/**@type{string}*/name) {
+    let shaderInfo = this._shaderModules.get(name);
+    if (!shaderInfo) {
+      throw new Error(`Shader code '${name}' has not been resolved`);
+    }
+    return shaderInfo;
   }
 
   setRenderDescription() { }
