@@ -63,13 +63,21 @@ illum 2
 Ns 65.8900
 
 
-newmtl floor
+newmtl green_2
 Ka 0.0000 0.2500 0.0000
-Kd 0.3000 0.300 0.3000
+Kd 0.6000 1.0000 0.7000
 Ks 0.0000 0.2500 0.0000
 illum 2
 Ns 65.8900
-reflection 1
+
+
+newmtl floor
+Ka 0.0000 0.2500 0.0000
+Kd 0.1500 0.1500 0.1500
+Ks 0.0000 0.2500 0.0000
+illum 2
+Ns 65.8900
+reflection 0.982
 
 
 newmtl yellow

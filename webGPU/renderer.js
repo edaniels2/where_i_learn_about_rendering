@@ -2,6 +2,10 @@ import { glMatrix, mat4, quat } from 'gl-matrix';
 import { createManager } from './twgpu-lib.js';
 import { DefaultControls } from '../twgl/default-controls.js';
 
+/**
+ * Currently broken due to changes in twgpu-lib
+ */
+
 export class BasicRenderer {
 
   constructor(scene) {

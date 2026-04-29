@@ -167,8 +167,7 @@ export class ObjFile {
 
     return class extends Geometry {
       define() {
-        // add some options so we don't return everything all the time. I think for the
-        // moment i'm only using dereferencedVertices/Normals and facetGroups
+        // add some options so we don't return everything all the time.
         this.vertices = vertices;
         this.normals = normals;
         this.texCoords = texCoords;
@@ -189,6 +188,7 @@ export class ObjFile {
 
 export class Geometry {
   constructor(options) {
+    this.skipBVH = options?.skipBVH;
     this.matrix = mat4.create();
     this.transformed = false;
     if (options?.position) {
@@ -253,6 +253,16 @@ export class Geometry {
       if (vtx[0] > mesh.boundingBox.max[0]) { mesh.boundingBox.max[0] = vtx[0] };
       if (vtx[1] > mesh.boundingBox.max[1]) { mesh.boundingBox.max[1] = vtx[1] };
       if (vtx[2] > mesh.boundingBox.max[2]) { mesh.boundingBox.max[2] = vtx[2] };
+    }
+    for (let i = 0; i < this.vertices.length; i += 3) {
+      const vtx = this.vertices.slice(i, i + 3);
+      vec3.transformMat4(vtx, vtx, this.matrix);
+      this.vertices.splice(i, 3, vtx[0], vtx[1], vtx[2]);
+    }
+    for (let i = 0; i < this.normals.length; i += 3) {
+      const vec = this.normals.slice(i, i + 3);
+      vec3.transformMat4(vec, vec, rotation);
+      this.normals.splice(i, 3, vec[0], vec[1], vec[2]);
     }
   }
 
