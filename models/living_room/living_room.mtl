@@ -75,6 +75,8 @@ d 0.6
 illum 2
 Ks 0 0 0
 map_Kd textures/Shade-paper.jpg
+Ke 1 0.95 0.8
+i 1
 
 # Cup
 newmtl Ceramic
@@ -364,3 +366,6 @@ d 0.2
 illum 2
 Ka 0 0 0
 Ks 0.04 0.04 0.04
+Ke 1 0.9 0.8
+i 1
+reflection 1

@@ -188,7 +188,6 @@ export class ObjFile {
 
 export class Geometry {
   constructor(options) {
-    this.skipBVH = options?.skipBVH;
     this.matrix = mat4.create();
     this.transformed = false;
     if (options?.position) {

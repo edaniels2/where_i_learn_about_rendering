@@ -117,7 +117,7 @@ export class ObjFile {
         // if > 3 vertices it will be dissected into triangles at this stage
         while (indexes.length >= 3) {
           const triangle = indexes.slice(0, 3);
-          calcNormals.push(glMatrix.vec3.normalize(sfcNorm, sfcNorm));
+          // calcNormals.push(glMatrix.vec3.normalize(sfcNorm, sfcNorm));
           currentGroup.faceDefs.push(triangle);
           triangle.forEach((parsedIndexes, positionIndex) => { // f indexes start at 1
             currentGroup.vertices.push(...rawVertices[parsedIndexes.vertex - 1]);
@@ -145,70 +145,70 @@ export class ObjFile {
         }
       }
     }
-    if (calcNormals.length) {
-      // console.log(calcNormals)
-      // fire a ready event, allow to create/save a file object with the new data
-      const blobParts = [];
-      const encoder = new TextEncoder;
-      if (currentMtlFile) {
-        blobParts.push(encoder.encode(`mtllib ${mtlPath}\n\n`));
-      }
-      rawVertices.forEach(v => {
-        blobParts.push(encoder.encode(`v ${v.join(' ')}\n`));
-      });
-      texCoords.forEach(vt => {
-        blobParts.push(encoder.encode(`vt ${vt.join(' ')}\n`));
-      });
-      let offset = 0;
-      for (let i = 0; i < facetGroups.length; i++) {
-        for (let j = 0; j < facetGroups[i].vertices.length; j += 3) {
-          const sn = calcNormals[offset + j / 3];
-          // if (!normObj.normalized) {
-            glMatrix.vec3.normalize(sn, sn);
-            // normObj.normalized = true;
-          // }
-          facetGroups[i].normals[j] = sn[0];
-          facetGroups[i].normals[j + 1] = sn[1];
-          facetGroups[i].normals[j + 2] = sn[2];
-          blobParts.push(encoder.encode(`vn ${sn.join(' ')}\n`));
-        }
-        offset += facetGroups[i].vertices.length / 3;
-      }
-      for (const group of facetGroups) {
-        blobParts.push(encoder.encode(`g ${group.name}\n`));
-        if (group.color) {
-          blobParts.push(encoder.encode(`c ${group.color.join(' ')}\n`));
-        }
-        if (group.material) {
-          blobParts.push(encoder.encode(`usemtl ${group.material.name}\n`));
-        }
-        for (const f of group.faceDefs) {
-          blobParts.push(encoder.encode('f '));
-          for (let i = 0; i < f.length; i++) {
-            blobParts.push(encoder.encode(f[i].vertex));
-            if (f[i].texture || f[i].normal) {
-              blobParts.push(encoder.encode(`/${f[i].texture || ''}`));
-              if (f[i].normal) {
-                blobParts.push(encoder.encode(`/${f[i].normal}`));
-              }
-            }
-            if (i < f.length) {
-              blobParts.push(encoder.encode(' '));
-            }
-          }
-          blobParts.push(encoder.encode('\n'));
-        }
-      }
-      const blob = new Blob(blobParts, {type: 'text/plain'});
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = this.name.replace('.obj', '_calc_normals.obj');
-      a.innerText = 'get it'
-      document.body.appendChild(a)
-      a.click();
-      // URL.revokeObjectURL(url);
-    }
+    // if (calcNormals.length) {
+    //   // console.log(calcNormals)
+    //   // fire a ready event, allow to create/save a file object with the new data
+    //   const blobParts = [];
+    //   const encoder = new TextEncoder;
+    //   if (currentMtlFile) {
+    //     blobParts.push(encoder.encode(`mtllib ${mtlPath}\n\n`));
+    //   }
+    //   rawVertices.forEach(v => {
+    //     blobParts.push(encoder.encode(`v ${v.join(' ')}\n`));
+    //   });
+    //   texCoords.forEach(vt => {
+    //     blobParts.push(encoder.encode(`vt ${vt.join(' ')}\n`));
+    //   });
+    //   let offset = 0;
+    //   for (let i = 0; i < facetGroups.length; i++) {
+    //     for (let j = 0; j < facetGroups[i].vertices.length; j += 3) {
+    //       const sn = calcNormals[offset + j / 3];
+    //       // if (!normObj.normalized) {
+    //         glMatrix.vec3.normalize(sn, sn);
+    //         // normObj.normalized = true;
+    //       // }
+    //       facetGroups[i].normals[j] = sn[0];
+    //       facetGroups[i].normals[j + 1] = sn[1];
+    //       facetGroups[i].normals[j + 2] = sn[2];
+    //       blobParts.push(encoder.encode(`vn ${sn.join(' ')}\n`));
+    //     }
+    //     offset += facetGroups[i].vertices.length / 3;
+    //   }
+    //   for (const group of facetGroups) {
+    //     blobParts.push(encoder.encode(`g ${group.name}\n`));
+    //     if (group.color) {
+    //       blobParts.push(encoder.encode(`c ${group.color.join(' ')}\n`));
+    //     }
+    //     if (group.material) {
+    //       blobParts.push(encoder.encode(`usemtl ${group.material.name}\n`));
+    //     }
+    //     for (const f of group.faceDefs) {
+    //       blobParts.push(encoder.encode('f '));
+    //       for (let i = 0; i < f.length; i++) {
+    //         blobParts.push(encoder.encode(f[i].vertex));
+    //         if (f[i].texture || f[i].normal) {
+    //           blobParts.push(encoder.encode(`/${f[i].texture || ''}`));
+    //           if (f[i].normal) {
+    //             blobParts.push(encoder.encode(`/${f[i].normal}`));
+    //           }
+    //         }
+    //         if (i < f.length) {
+    //           blobParts.push(encoder.encode(' '));
+    //         }
+    //       }
+    //       blobParts.push(encoder.encode('\n'));
+    //     }
+    //   }
+    //   const blob = new Blob(blobParts, {type: 'text/plain'});
+    //   const a = document.createElement('a');
+    //   const url = URL.createObjectURL(blob);
+    //   a.href = url;
+    //   a.download = this.name.replace('.obj', '_calc_normals.obj');
+    //   a.innerText = 'get it'
+    //   document.body.appendChild(a)
+    //   a.click();
+    //   // URL.revokeObjectURL(url);
+    // }
 
     if (this.drawElements) {
       return class extends ElementGeometry {

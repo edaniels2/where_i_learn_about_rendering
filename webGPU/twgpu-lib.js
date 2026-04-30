@@ -8,6 +8,7 @@ import {
 export async function createManager(options) { // typedef the options
   /**@type{HTMLCanvasElement}*/const canvas = options?.canvas || document.querySelector('canvas');
   const adapter = await navigator.gpu.requestAdapter();
+  console.log(adapter.limits);
 
   if (options?.computeToCanvas) {
     // bgra8unorm as a storage texture is an optional feature so
@@ -52,26 +53,26 @@ export class Manager {
       usage: settings.usage ?? GPUTextureUsage.RENDER_ATTACHMENT,
       alphaMode: 'opaque',
     });
-    this.noTexture = this.device.createTexture({
-      size: [1, 1],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
-    });
-    this.device.queue.writeTexture(
-      { texture: this.noTexture },
-      new Uint8Array([
-        255, 255, 255, 255, 255, 255, 255, 255,
-        255, 255, 255, 255, 255, 255, 255, 255,
-      ]),
-      { bytesPerRow: 8 },
-      { width: 1, height: 1 }
-    );
+    // this.noTexture = this.device.createTexture({
+    //   size: [1, 1],
+    //   format: 'rgba8unorm',
+    //   usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    // });
+    // this.device.queue.writeTexture(
+    //   { texture: this.noTexture },
+    //   new Uint8Array([
+    //     255, 255, 255, 255, 255, 255, 255, 255,
+    //     255, 255, 255, 255, 255, 255, 255, 255,
+    //   ]),
+    //   { bytesPerRow: 8 },
+    //   { width: 1, height: 1 }
+    // );
     this.resizeCanvasToDisplaySize();
     this.defaultRenderDescription = {
       colorAttachments: [
         {
           view: null,
-          clearValue: { r: 1, g: 1, b: 1, a: 1}, // todo: support passing these values
+          clearValue: { r: 0.5, g: 0.5, b: 0.5, a: 1}, // todo: support passing these values
           loadOp: 'clear',
           storeOp: 'store'
         },

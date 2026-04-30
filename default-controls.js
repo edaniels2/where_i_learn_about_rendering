@@ -1,14 +1,14 @@
-import * as twgl from './twgl/twgl_lib/twgl-full.module.js'; // update to use gl-matrix
+import { mat4, vec3 } from 'gl-matrix';
 
 export class DefaultControls {
   constructor(viewMatrix, options /* unlockHeight = false, unlockUp = false */) {
     this.time = 0;
     this.step = 0;
     this.changed = true;
-    this.matrix = options?.matrixCopy ? twgl.m4.copy(viewMatrix) : viewMatrix;
+    this.matrix = options?.matrixCopy ? mat4.clone(viewMatrix) : viewMatrix;
     this.movement = this.initializeKeyboardEvents();
     this.looking = this.initializePointerEvents();
-    const dir = twgl.v3.negate(twgl.m4.getAxis(this.matrix, 2));
+    const dir = vec3.negate(vec3.create(), [this.matrix[8], this.matrix[9], this.matrix[10]]);
     this.elev = Math.atan2(dir[1], -dir[2]); // maybe
     this.az = Math.atan2(dir[0], -dir[2]);
     this.lockHeight = !options?.unlockHeight;
@@ -36,9 +36,9 @@ export class DefaultControls {
   updatePosition() {
     if (this.movement[0] || this.movement[2]) {
       const translation = this.lockHeight
-        ? twgl.m4.transformDirection(twgl.m4.rotationX(-this.elev), this.movement)
-        : twgl.m4.copy(this.movement);
-      twgl.m4.translate(this.matrix, twgl.v3.mulScalar(translation, this.step, translation), this.matrix);
+        ? vec3.rotateX(vec3.create(), this.movement, [0, 0, 0], -this.elev)
+        : this.movement;
+      mat4.translate(this.matrix, this.matrix, vec3.scale(translation, translation, this.step));
       this.changed = true;
     }
   }
@@ -120,11 +120,11 @@ export class DefaultControls {
       let rotationX = lookX;
       if (this.lockUp) {
         // in order to maintain 'up' reset the elevation to zero before rotating azimuth
-        twgl.m4.rotateX(this.matrix, -this.elev, this.matrix);
+        mat4.rotateX(this.matrix, this.matrix, -this.elev);
         rotationX += this.elev;
       }
-      twgl.m4.rotateY(this.matrix, lookY, this.matrix);
-      twgl.m4.rotateX(this.matrix, rotationX, this.matrix);
+      mat4.rotateY(this.matrix, this.matrix, lookY);
+      mat4.rotateX(this.matrix, this.matrix, rotationX);
       this.elev += lookX;
       this.az += lookY; // probably don't need this
       prevX = event.pageX;
@@ -135,5 +135,42 @@ export class DefaultControls {
     const canvas = document.querySelector('canvas');
     const movementScale = 1.3 / canvas.getBoundingClientRect().width;
     document.addEventListener('pointerdown', mouseDown);
+  }
+}
+
+
+export class Camera extends DefaultControls {
+
+  constructor(matrixArrays, options /* unlockHeight = false, unlockUp = false */) {
+    const cameraToWorld = matrixArrays.cameraToWorld ?? mat4.create();
+    super(cameraToWorld, options);
+    mat4.lookAt(this.matrix, [0, 0, 0], [0, 0, -1], [0, 1, 0]);
+    this._worldToView = matrixArrays.worldToView;
+    this._projection = matrixArrays.projection;
+    this.viewParams = matrixArrays.frustrumParams;
+    this.ndcParams = matrixArrays.ndcParams;
+    this.updateViewParams();
+    this.updatePosition();
+  }
+
+  updateViewParams(options) {
+    const canvas = document.querySelector('canvas');
+    const aspect = options?.aspect || canvas.width / canvas.height;
+    const fov = options?.fov || Math.PI / 6 / aspect;
+    this.distToPlane = options?.distToPlane || 1;
+    this.planeHeight = this.distToPlane * Math.tan(fov * 0.5) * 2; // make sure this matches up with projection matrix
+    this.planeWidth = this.planeHeight * aspect;
+    this.viewParams.set([this.planeWidth, this.planeHeight, this.distToPlane]);
+    this.ndcParams.set([1 / canvas.width, 1 / canvas.height]);
+    if (this._projection) {
+      mat4.perspective(this._projection, fov * aspect, aspect, 0.1, 1000);
+    }
+  }
+
+  updatePosition() {
+    super.updatePosition();
+    if (this._worldToView) {
+      mat4.invert(this._worldToView, this.matrix);
+    }
   }
 }

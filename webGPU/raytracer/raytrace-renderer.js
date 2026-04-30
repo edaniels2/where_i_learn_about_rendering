@@ -1,8 +1,8 @@
-import { glMatrix, mat4, vec3 } from 'gl-matrix';
+import { glMatrix } from 'gl-matrix';
 import { RollingAverage } from '../rolling-average.js';
 import { createManager } from '../twgpu-lib.js';
-import { getSizeAndAlignmentOfUnsizedArrayElement, makeStructuredView } from 'webgpu-utils';
-import { DefaultControls } from '../../default-controls.js';
+import { createTextureFromImage, getSizeAndAlignmentOfUnsizedArrayElement, makeStructuredView } from 'webgpu-utils';
+import { Camera } from '../../default-controls.js';
 import { BVH } from './structure.js';
 
 export class RaytraceRenderer {
@@ -12,6 +12,7 @@ export class RaytraceRenderer {
   _accumulatorBindGroup0;
   _accumulatorShaderInfo;
   _materialIndexes = new Map();
+  _textureIndexes = new Map();
   _meshInstanceInfo = [];
   _blendWeight = new Float32Array(1);
   _blendWeightGpuBuffer;
@@ -25,11 +26,10 @@ export class RaytraceRenderer {
     glMatrix.setMatrixArrayType(Array);
     this.modelSources = scene?.models;
     this.frameAccumulator = true;
-    this.useBVH = true;
     this.heatMap = false;
     this.heatMapThreshold = 1000;
     this.pauseRendering = false;
-    this.environmentLight = [0, 0, 0];
+    this.environmentLight = [1, 1, 1];
     this.infoEl = document.querySelector('pre#info');
     this.fps = new RollingAverage();
   }
@@ -59,15 +59,16 @@ export class RaytraceRenderer {
       }],
     });
 
-    // materials must be first so triangles can get material indexes
+    // order is important, must load textures first, then setup materials before triangles
+    await this.loadModelTextures();
     const materialsGpuBuffer = this.setMaterialStorage();
     const bvhGpuBuffer = this.setBVHStorage();
     const trianglesGpuBuffer = this.setTriangleStorage();
-    const meshesGpuBuffer = this.setMeshesStorage();
+    // const meshesGpuBuffer = this.setMeshesStorage();
     this.vertexBuffer = this.setVertexBuffer();
 
     this._staticUniforms = makeStructuredView(this._shaderInfo.uniforms.staticUniforms);
-    this._staticUniforms.views.bvhEnd.set([this.bvhStructure.triangles.length]);
+    // this._staticUniforms.views.bvhEnd.set([this.bvhStructure.triangles.length]);
     this.camera = new Camera({
       cameraToWorld: this._staticUniforms.views.cameraToWorld,
       worldToView: this._staticUniforms.views.worldToView,
@@ -90,12 +91,11 @@ export class RaytraceRenderer {
       entries: [
         {binding: this._shaderInfo.storages.triangles.binding, resource: trianglesGpuBuffer},
         {binding: this._shaderInfo.storages.materials.binding, resource: materialsGpuBuffer},
-        {binding: this._shaderInfo.storages.meshes.binding, resource: meshesGpuBuffer},
         {binding: this._shaderInfo.storages.bvhNodes.binding, resource: bvhGpuBuffer},
         {binding: this._shaderInfo.uniforms.staticUniforms.binding, resource: this._staticUniformsGpuBuffer},
       ]
     });
-    this.createTextures();
+    this.createRenderTextures();
 
     requestAnimationFrame(t => this.render(t));
   }
@@ -110,7 +110,7 @@ export class RaytraceRenderer {
     }
     this.camera.resume();
     if (this.manager.resizeCanvasToDisplaySize()) {
-      this.createTextures();
+      this.createRenderTextures();
       this.camera.updateViewParams();
       this.camera.changed = true;
     }
@@ -120,26 +120,33 @@ export class RaytraceRenderer {
       environmentLight: this.environmentLight,
       heatMap: [Number(this.heatMap)],
       heatMapThreshold: [this.heatMapThreshold],
-      useBVH: [Number(this.useBVH)],
     });
     this.manager.device.queue.writeBuffer(this._staticUniformsGpuBuffer, 0, this._staticUniforms.arrayBuffer);
 
     if (changed || !this.frameAccumulator) {
+      const bindGroups = [this._renderBindGroup0];
+      if (this._textureIndexes.size) {
+        bindGroups.push(this._renderBindGroup1);
+      }
       this._accumulatedFrameCount = 0;
       this.manager.singlePassRender({
         pipeine: this._pipeline,
-        bindGroups: [this._renderBindGroup0],
+        bindGroups,
         numVertices: 6,
         vertexBuffer: this.vertexBuffer,
       });
     } else {
+      const bindGroups = [this._renderBindGroup0];
+      if (this._textureIndexes.size) {
+        bindGroups.push(this._renderBindGroup1);
+      }
       this._blendWeight.set([1 / (this._accumulatedFrameCount + 1)]);
       this.manager.device.queue.writeBuffer(this._blendWeightGpuBuffer, 0, this._blendWeight);
       this._accumulatedFrameCount++;
       this.manager.multiPassRender([
         {
           pipeline: this._renderPipeline,
-          bindGroups: [this._renderBindGroup0],
+          bindGroups,
           vertexBuffer: this.vertexBuffer,
           numVertices: 6,
           target: this.renderTexture,
@@ -157,19 +164,24 @@ export class RaytraceRenderer {
   }
 
   setTriangleStorage() {
-    const allTris = this.bvhStructure.triangles.concat(this.bvhStructure.outsideTriangles);
-    const _numTriangles = allTris.length;
+    const _numTriangles = this.bvhStructure.triangles.length;
     const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.triangles);
     const triangleStorage = makeStructuredView(this._shaderInfo.storages.triangles, new ArrayBuffer(size * _numTriangles));
     const vertexTrianglesBuffer = this.manager.createEmptyBuffer(size * _numTriangles, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
     let triangleIndex = 0;
-    for (const tri of allTris) {
+    for (const tri of this.bvhStructure.triangles) {
       triangleStorage.views[triangleIndex].A.set(tri.A);
       triangleStorage.views[triangleIndex].B.set(tri.B);
       triangleStorage.views[triangleIndex].C.set(tri.C);
       triangleStorage.views[triangleIndex].normA.set(tri.normalA);
       triangleStorage.views[triangleIndex].normB.set(tri.normalB);
       triangleStorage.views[triangleIndex].normC.set(tri.normalC);
+      triangleStorage.views[triangleIndex].texCoordAx.set([tri.texCoordsA[0]]);
+      triangleStorage.views[triangleIndex].texCoordAy.set([tri.texCoordsA[1]]);
+      triangleStorage.views[triangleIndex].texCoordBx.set([tri.texCoordsB[0]]);
+      triangleStorage.views[triangleIndex].texCoordBy.set([tri.texCoordsB[1]]);
+      triangleStorage.views[triangleIndex].texCoordCx.set([tri.texCoordsC[0]]);
+      triangleStorage.views[triangleIndex].texCoordCy.set([tri.texCoordsC[1]]);
       triangleStorage.views[triangleIndex].sfcNormX.set([tri.sfcNormal[0]]);
       triangleStorage.views[triangleIndex].sfcNormY.set([tri.sfcNormal[1]]);
       triangleStorage.views[triangleIndex].sfcNormZ.set([tri.sfcNormal[2]]);
@@ -179,49 +191,6 @@ export class RaytraceRenderer {
     this.manager.device.queue.writeBuffer(vertexTrianglesBuffer, 0, triangleStorage.arrayBuffer);
     return vertexTrianglesBuffer;
   }
-
-  // setTriangleStorage() {
-  //   const _numTriangles = this.models.reduce((sum, model) => {
-  //     sum += model.dereferencedVertices.length;
-  //     return sum;
-  //   }, 0) / 6;
-  //   const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.triangles);
-  //   const triangleStorage = makeStructuredView(this._shaderInfo.storages.triangles, new ArrayBuffer(size * _numTriangles));
-  //   const vertexTrianglesBuffer = this.manager.createEmptyBuffer(size * _numTriangles, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
-  //   let triangleIndex = 0;
-  //   for (const model of this.models) {
-  //     for (let i = 0; i < model.dereferencedVertices.length; i += 9) {
-  //       const materialName = model.facetGroups.find(group => {
-  //         const modelTri = i / 9;
-  //         return group.triangleOffset <= modelTri && group.triangleOffset + group.triangleCount > modelTri;
-  //       }).materialName;
-  //       const A = [];
-  //       const B = [];
-  //       const C = [];
-  //       for (let j = 0; j < 3; j++) {
-  //         A[j] = model.dereferencedVertices[i + j];
-  //         B[j] = model.dereferencedVertices[i + j + 3];
-  //         C[j] = model.dereferencedVertices[i + j + 6];
-  //         triangleStorage.views[triangleIndex].A[j] = model.dereferencedVertices[i + j];
-  //         triangleStorage.views[triangleIndex].B[j] = model.dereferencedVertices[i + j + 3];
-  //         triangleStorage.views[triangleIndex].C[j] = model.dereferencedVertices[i + j + 6];
-  //         triangleStorage.views[triangleIndex].normA[j] = model.dereferencedNormals[i + j];
-  //         triangleStorage.views[triangleIndex].normB[j] = model.dereferencedNormals[i + j + 3];
-  //         triangleStorage.views[triangleIndex].normC[j] = model.dereferencedNormals[i + j + 6];
-  //       }
-  //       const edge1 = vec3.sub(vec3.create(), B, A);
-  //       const edge2 = vec3.sub(vec3.create(), C, A);
-  //       const sfcNorm = vec3.cross(vec3.create(), edge1, edge2);
-  //       triangleStorage.views[triangleIndex].sfcNormX.set([sfcNorm[0]]);
-  //       triangleStorage.views[triangleIndex].sfcNormY.set([sfcNorm[1]]);
-  //       triangleStorage.views[triangleIndex].sfcNormZ.set([sfcNorm[2]]);
-  //       triangleStorage.views[triangleIndex].materialIndex.set([this._materialIndexes.get(materialName)]);
-  //       triangleIndex++;
-  //     }
-  //   }
-  //   this.manager.device.queue.writeBuffer(vertexTrianglesBuffer, 0, triangleStorage.arrayBuffer);
-  //   return vertexTrianglesBuffer;
-  // }
 
   setMaterialStorage() {
     const numMaterials = this.models.reduce((sum, model) => {
@@ -234,10 +203,12 @@ export class RaytraceRenderer {
     let materialIndex = 0;
     for (const model of this.models) {
       for (const material of Object.values(model.materials)) {
+        const texturePath = material.map_Ka ?? material.map_Kd;
         material.Kd && materialStorage.views[materialIndex].color.set(material.Kd);
         material.Ke && materialStorage.views[materialIndex].emitColor.set(material.Ke);
         material.i && materialStorage.views[materialIndex].emitIntensity.set([material.i]);
         material.reflection && materialStorage.views[materialIndex].reflection.set([material.reflection]);
+        materialStorage.views[materialIndex].textureIndex.set([this._textureIndexes.get(texturePath) ?? -1]);
         this._materialIndexes.set(material.name, materialIndex);
         materialIndex++;
       }
@@ -246,42 +217,42 @@ export class RaytraceRenderer {
     return materialGpuBuffer;
   }
 
-  setMeshesStorage() {
-    const numMeshes = this.models.reduce((sum, model) => {
-      sum += model.facetGroups.length;
-      return sum;
-    }, 0);
-    const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.meshes);
-    const meshesStorage = makeStructuredView(this._shaderInfo.storages.meshes, new ArrayBuffer(size * numMeshes));
-    const meshesGpuBuffer = this.manager.createEmptyBuffer(size * numMeshes, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
-    let modelVertexOffset = 0;
-    let modelTriangleOffset = 0;
-    let meshIndex = 0;
-    for (const model of this.models) {
-      let meshTriangles = 0;
-      const trianglesInModel = model.vertexIndexes.length / 3;
-      for (const mesh of model.facetGroups) {
-        const materialIndex = this._materialIndexes.get(mesh.materialName);
-        meshesStorage.views[meshIndex].boxMax.set(mesh.boundingBox.max);
-        meshesStorage.views[meshIndex].boxMin.set(mesh.boundingBox.min);
-        meshesStorage.views[meshIndex].firstTriangle.set([mesh.triangleOffset + modelTriangleOffset]);
-        meshesStorage.views[meshIndex].materialIndex.set([materialIndex]);
-        meshesStorage.views[meshIndex].nextMeshFirstTriangle.set([mesh.triangleOffset + mesh.triangleCount + modelTriangleOffset]);
-        // used to pass the current material index to the vertex shader via instance index
-        this._meshInstanceInfo.push({ // NOT USED; abandoned idea
-          firstVertex: modelVertexOffset + mesh.startIndex,
-          vertexCount: mesh.length,
-          materialIndex
-        });
-        meshTriangles += mesh.triangleCount;
-        meshIndex++;
-      }
-      modelVertexOffset += meshTriangles * 3;
-      modelTriangleOffset += trianglesInModel;
-    }
-    this.manager.device.queue.writeBuffer(meshesGpuBuffer, 0, meshesStorage.arrayBuffer);
-    return meshesGpuBuffer;
-  }
+  // setMeshesStorage() {
+  //   const numMeshes = this.models.reduce((sum, model) => {
+  //     sum += model.facetGroups.length;
+  //     return sum;
+  //   }, 0);
+  //   const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.meshes);
+  //   const meshesStorage = makeStructuredView(this._shaderInfo.storages.meshes, new ArrayBuffer(size * numMeshes));
+  //   const meshesGpuBuffer = this.manager.createEmptyBuffer(size * numMeshes, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+  //   let modelVertexOffset = 0;
+  //   let modelTriangleOffset = 0;
+  //   let meshIndex = 0;
+  //   for (const model of this.models) {
+  //     let meshTriangles = 0;
+  //     const trianglesInModel = model.vertexIndexes.length / 3;
+  //     for (const mesh of model.facetGroups) {
+  //       const materialIndex = this._materialIndexes.get(mesh.materialName);
+  //       meshesStorage.views[meshIndex].boxMax.set(mesh.boundingBox.max);
+  //       meshesStorage.views[meshIndex].boxMin.set(mesh.boundingBox.min);
+  //       meshesStorage.views[meshIndex].firstTriangle.set([mesh.triangleOffset + modelTriangleOffset]);
+  //       meshesStorage.views[meshIndex].materialIndex.set([materialIndex]);
+  //       meshesStorage.views[meshIndex].nextMeshFirstTriangle.set([mesh.triangleOffset + mesh.triangleCount + modelTriangleOffset]);
+  //       // used to pass the current material index to the vertex shader via instance index
+  //       this._meshInstanceInfo.push({ // NOT USED; abandoned idea
+  //         firstVertex: modelVertexOffset + mesh.startIndex,
+  //         vertexCount: mesh.length,
+  //         materialIndex
+  //       });
+  //       meshTriangles += mesh.triangleCount;
+  //       meshIndex++;
+  //     }
+  //     modelVertexOffset += meshTriangles * 3;
+  //     modelTriangleOffset += trianglesInModel;
+  //   }
+  //   this.manager.device.queue.writeBuffer(meshesGpuBuffer, 0, meshesStorage.arrayBuffer);
+  //   return meshesGpuBuffer;
+  // }
 
   setBVHStorage() {
     const bvh = new BVH();
@@ -289,7 +260,8 @@ export class RaytraceRenderer {
       for (const group of model.facetGroups) {
         const vertexIndexes = model.vertexIndexes.slice(group.triangleOffset * 3, (group.triangleOffset + group.triangleCount) * 3);
         const normalIndexes = model.normalIndexes.slice(group.triangleOffset * 3, (group.triangleOffset + group.triangleCount) * 3);
-        bvh.addModel(model.vertices, vertexIndexes, model.normals, normalIndexes, this._materialIndexes.get(group.materialName), model.skipBVH);
+        const textureIndexes = model.textureIndexes.slice(group.triangleOffset * 3, (group.triangleOffset + group.triangleCount) * 3);
+        bvh.addModel(model.vertices, vertexIndexes, model.normals, normalIndexes, model.texCoords, textureIndexes, this._materialIndexes.get(group.materialName));
       }
     }
     this.bvhStructure = bvh.compute();
@@ -328,7 +300,7 @@ export class RaytraceRenderer {
     return vertexBuffer;
   }
 
-  createTextures() {
+  createRenderTextures() {
     this.previousFrameTexture?.destroy();
     this.renderTexture?.destroy();
     this.previousFrameTexture = this.manager.device.createTexture({
@@ -353,41 +325,50 @@ export class RaytraceRenderer {
       ]
     });
   }
-}
 
-class Camera extends DefaultControls {
-
-  constructor(matrixArrays, options /* unlockHeight = false, unlockUp = false */) {
-    const cameraToWorld = matrixArrays.cameraToWorld ?? mat4.create();
-    super(cameraToWorld, options);
-    mat4.lookAt(this.matrix, [0, 0, 0], [0, 0, -1], [0, 1, 0]);
-    this._worldToView = matrixArrays.worldToView;
-    this._projection = matrixArrays.projection;
-    this.viewParams = matrixArrays.frustrumParams;
-    this.ndcParams = matrixArrays.ndcParams;
-    this.updateViewParams();
-    this.updatePosition();
-  }
-
-  updateViewParams(options) {
-    const canvas = document.querySelector('canvas');
-    const aspect = options?.aspect || canvas.width / canvas.height;
-    const fov = options?.fov || Math.PI / 6 / aspect;
-    this.distToPlane = options?.distToPlane || 1;
-    this.planeHeight = this.distToPlane * Math.tan(fov * 0.5) * 2; // make sure this matches up with projection matrix
-    this.planeWidth = this.planeHeight * aspect;
-    this.viewParams.set([this.planeWidth, this.planeHeight, this.distToPlane]);
-    this.ndcParams.set([1 / canvas.width, 1 / canvas.height]);
-    if (this._projection) {
-      mat4.perspective(this._projection, fov * aspect, aspect, 0.1, 1000);
+  async loadModelTextures() {
+    const textureBuffers = [];
+    for (const model of this.models) {
+      for (const material of Object.values(model.materials)) {
+        const texturePath = material.map_Kd || material.map_Ka;
+        if (texturePath) {
+          const len = textureBuffers.push(await createTextureFromImage(this.manager.device, texturePath, { flipY: true, mips: true }));
+          this._textureIndexes.set(texturePath, len - 1);
+        //   const imageBmp = await createImageBitmap(await (await fetch(texturePath).blob()));
+        //   const textureDescriptor = {
+        //     size: { width: imageBmp.width, height: imageBmp.height },
+        //     format: 'rgba8unorm', // presentationFormat?
+        //     usage: GPUTextureUsage.TEXTURE_BINDING
+        //   };
+        //   const texture = this.manager.device.createTexture(textureDescriptor);
+        //   this.manager.device.queue.copyExternalImageToTexture(
+        //     { source: imageBmp, flipY: true },
+        //     { texture },
+        //     textureDescriptor.size,
+        //   );
+        }
+      }
     }
-  }
-
-  updatePosition() {
-    super.updatePosition();
-    if (this._worldToView) {
-      mat4.invert(this._worldToView, this.matrix);
+    if (!textureBuffers.length) {
+      return;
     }
+    const sampler = this.manager.device.createSampler({
+      addressModeU: 'repeat',
+      addressModeV: 'repeat',
+      magFilter: 'linear',
+      minFilter: 'linear',
+      mipmapFilter: 'linear',
+    });
+    this._renderBindGroup1 = this.manager.device.createBindGroup({
+      label: 'textures bind group',
+      layout: this._renderPipeline.getBindGroupLayout(1),
+      entries: [
+        {binding: this._shaderInfo.samplers.texSampler.binding, resource: sampler},
+        {binding: this._shaderInfo.textures.texture0.binding, resource: textureBuffers[0]},
+        {binding: this._shaderInfo.textures.texture1.binding, resource: textureBuffers[1]},
+        {binding: this._shaderInfo.textures.texture2.binding, resource: textureBuffers[2]},
+      ]
+    });
   }
 }
 

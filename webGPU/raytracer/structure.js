@@ -1,16 +1,31 @@
 import { vec3 } from 'gl-matrix';
 
-const Q = false;
+const BVH_SPLIT_SLICES = 32;
+const MAX_DEPTH = 64;
+const STATS = {
+  maxTreeDepth: 0,
+  largestLeaf: 0,
+  smallestLeaf: Infinity,
+  averageLeaf: 0,
+  totalLeaves: 0,
+  timeToBuild: 0,
+};
 const /**@type{Triangle[]}*/ triangleList = [];
-const /**@type{Triangle[]}*/ outsideTriangleList = [];
 const /**@type{BVHNode[]}*/ BVHNodeList = [];
 
+function resetStats() {
+  STATS.maxTreeDepth = 0;
+  STATS.largestLeaf = 0;
+  STATS.smallestLeaf = Infinity;
+  STATS.averageLeaf = 0;
+  STATS.totalLeaves = 0;
+}
+
 export class BVH {
-  // boundingBox = new BoundingBox();
   root = new BVHNode();
   _triangleIndex = 0;
 
-  addModel(vertices, vertexIndexes, normals = [], normalIndexes = [], materialIndex = 0, skipBVH = false) {
+  addModel(vertices, vertexIndexes, normals = [], normalIndexes = [], texCoords = [], textureIndexes = [], materialIndex = 0) {
     for (let i = 0; i < vertexIndexes.length; i += 3) {
       let aStart = vertexIndexes[i] * 3;
       let bStart = vertexIndexes[i + 1] * 3;
@@ -26,14 +41,17 @@ export class BVH {
       const nB = [normals[bStart], normals[bStart + 1], normals[bStart + 2]];
       const nC = [normals[cStart], normals[cStart + 1], normals[cStart + 2]];
 
-      const tri = new Triangle(A, B, C, nA, nB, nC, this._triangleIndex, materialIndex);
-      if (skipBVH) {
-        outsideTriangleList.push(tri);
-      } else {
-        this.root.boundingBox.addTriangle(tri);
-        triangleList.push(tri);
-        this._triangleIndex++;
-      }
+      aStart = textureIndexes[i] * 2;
+      bStart = textureIndexes[i + 1] * 2;
+      cStart = textureIndexes[i + 2] * 2;
+      const tA = [texCoords[aStart], texCoords[aStart + 1]];
+      const tB = [texCoords[bStart], texCoords[bStart + 1]];
+      const tC = [texCoords[cStart], texCoords[cStart + 1]];
+
+      const tri = new Triangle(A, B, C, nA, nB, nC, tA, tB, tC, this._triangleIndex, materialIndex);
+      this.root.boundingBox.addTriangle(tri);
+      triangleList.push(tri);
+      this._triangleIndex++;
     }
     this.root.triangleCount = this._triangleIndex;
   }
@@ -58,14 +76,19 @@ export class BVH {
   // }
 
   compute() {
+    resetStats();
+    const start = performance.now();
     BVHNodeList.push(this.root);
     this.root.split();
-    return { triangles: triangleList, bvhNodes: BVHNodeList, outsideTriangles: outsideTriangleList };
+    const elapsed = performance.now() - start;
+    STATS.timeToBuild = `${elapsed} ms`;
+    STATS.averageLeaf /= STATS.totalLeaves;
+    console.log(STATS);
+    return { triangles: triangleList, bvhNodes: BVHNodeList };
   }
 }
 
 export class BVHNode {
-  maxDepth = 10;
   /**@type{BoundingBox}*/ boundingBox;
   /**@typs{number}*/ firstTriangleIndex;
   /**@typs{number}*/ triangleCount;
@@ -74,8 +97,8 @@ export class BVHNode {
   /**@type{BVHNode}*/childA;
   /**@type{BVHNode}*/childB;
 
-  constructor(/* bounds,  */firstTriangleIndex, triangleCount) {
-    this.boundingBox = /* bounds ?? */ new BoundingBox();
+  constructor(firstTriangleIndex, triangleCount) {
+    this.boundingBox = new BoundingBox();
     this.firstTriangleIndex = firstTriangleIndex ?? 0;
     this.triangleCount = triangleCount ?? 0;
     if (triangleCount) {
@@ -92,20 +115,29 @@ export class BVHNode {
   }
 
   split(depth = 0) {
-    if (depth == this.maxDepth || this.triangleCount < 3) {
+    if (depth == MAX_DEPTH || this.triangleCount < 3) {
+      STATS.averageLeaf += this.triangleCount;
+      STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
+      STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
+      STATS.totalLeaves++;
       return;
     }
+    STATS.maxTreeDepth = Math.max(STATS.maxTreeDepth, depth);
     const { splitAxis, splitPoint, cost } = this.chooseSplit();
-    // const leftBound = new BoundingBox();
-    // const rightBound = new BoundingBox();
+    const parentCost = this.nodeCost(this.boundingBox[0], this.boundingBox[1], this.boundingBox[2], this.triangleCount);
+    if (cost > parentCost) {
+      STATS.averageLeaf += this.triangleCount;
+      STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
+      STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
+      STATS.totalLeaves++;
+      return;
+    }
     let i = this.firstTriangleIndex;
     let j = i + this.triangleCount - 1;
     while (i <= j) {
       if (triangleList[i].center[splitAxis] < splitPoint) {
-        // leftBound.addTriangle(triangleList[i]);
         i++;
       } else {
-        // rightBound.addTriangle(triangleList[i]);
         const tmp = triangleList[i];
         triangleList[i] = triangleList[j];
         triangleList[j] = tmp;
@@ -114,6 +146,10 @@ export class BVHNode {
     }
     const leftCount = i - this.firstTriangleIndex;
     if (leftCount == 0 || leftCount == this.triangleCount) {
+      STATS.averageLeaf += this.triangleCount;
+      STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
+      STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
+      STATS.totalLeaves++;
       return;
     }
     this.childA = new BVHNode(/* leftBound,  */this.firstTriangleIndex, leftCount);
@@ -125,17 +161,30 @@ export class BVHNode {
   }
 
   chooseSplit() {
-    const size = vec3.sub(vec3.create(), this.boundingBox.max, this.boundingBox.min);
-    let splitAxis = X_AXIS;
-    if (size[Y_AXIS] > size[X_AXIS]) {
-      splitAxis = Y_AXIS;
+    let splitAxis, splitPoint;
+    let bestCost = Infinity;
+    for (let axis = 0; axis < 3; axis++) {
+      let boundMin = Infinity;
+      let boundMax = -Infinity;
+      for (let i = this.firstTriangleIndex; i < this.firstTriangleIndex + this.triangleCount; i++) {
+        boundMin = Math.min(boundMin, triangleList[i].center[axis]);
+        boundMax = Math.max(boundMax, triangleList[i].center[axis]);
+      }
+      if (boundMax === boundMin) {
+        continue;
+      }
+      const scale = (boundMax - boundMin) / BVH_SPLIT_SLICES;
+      for (let i = 1; i < BVH_SPLIT_SLICES; i++) {
+        const testPos = boundMin + i * scale;
+        const cost = this.evaluateSplit(axis, testPos);
+        if (cost < bestCost) {
+          bestCost = cost;
+          splitAxis = axis;
+          splitPoint = testPos;
+        }
+      }
     }
-    if (size[Z_AXIS] > size[Y_AXIS]) {
-      splitAxis = Z_AXIS;
-    }
-    const splitPoint = this.boundingBox.min[splitAxis] + size[splitAxis] * 0.5;
-    const cost = this.evaluateSplit(splitAxis, splitPoint/* , start, count */);
-    return { splitAxis, splitPoint, cost };
+    return { splitAxis, splitPoint, cost: bestCost };
   }
 
   evaluateSplit(axis, position/* , start, count */) {
@@ -222,18 +271,24 @@ export class Triangle {
   /**@type{vec3}*/ normalA;
   /**@type{vec3}*/ normalB;
   /**@type{vec3}*/ normalC;
+  /**@type{vec2}*/ texCoordsA;
+  /**@type{vec2}*/ texCoordsB;
+  /**@type{vec2}*/ texCoordsC;
   /**@type{vec3}*/ sfcNormal;
   /**@type{vec3}*/ center;
   /**@type{number}*/ triangleIndex;
   /**@type{number}*/ materialIndex;
 
-  constructor(A, B, C, normA, normB, normC, index, materialIndex) {
+  constructor(A, B, C, normA, normB, normC, texA, texB, texC, index, materialIndex) {
     this.A = A;
     this.B = B;
     this.C = C;
     this.normalA = normA;
     this.normalB = normB;
     this.normalC = normC;
+    this.texCoordsA = texA;
+    this.texCoordsB = texB;
+    this.texCoordsC = texC;
     this.triangleIndex = index;
     this.materialIndex = materialIndex;
     const edge1 = vec3.sub(vec3.create(), B, A);
