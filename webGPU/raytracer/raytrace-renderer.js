@@ -39,8 +39,8 @@ export class RaytraceRenderer {
     const promises = this.modelSources.map(src => src instanceof Promise ? src : Promise.resolve(src));
     this.models = await Promise.all(promises);
     console.log(this.models);
-    this.manager = await createManager({canvasTextureUsage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC});
-    this._shaderInfo = (await this.manager.resolveShader('raytracer')).definitions;
+    this.manager = await createManager();
+    this._shaderInfo = await this.createShader();
     this._accumulatorShaderInfo = (await this.manager.resolveShader('frame_accumulator')).definitions;
     this._renderPipeline = this.manager.createPipeline('raytracer', {
       buffers: [{
@@ -164,10 +164,10 @@ export class RaytraceRenderer {
   }
 
   setTriangleStorage() {
-    const _numTriangles = this.bvhStructure.triangles.length;
+    const numTriangles = this.bvhStructure.triangles.length;
     const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.triangles);
-    const triangleStorage = makeStructuredView(this._shaderInfo.storages.triangles, new ArrayBuffer(size * _numTriangles));
-    const vertexTrianglesBuffer = this.manager.createEmptyBuffer(size * _numTriangles, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    const triangleStorage = makeStructuredView(this._shaderInfo.storages.triangles, new ArrayBuffer(size * numTriangles));
+    const vertexTrianglesBuffer = this.manager.createEmptyBuffer(size * numTriangles, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
     let triangleIndex = 0;
     for (const tri of this.bvhStructure.triangles) {
       triangleStorage.views[triangleIndex].A.set(tri.A);
@@ -217,43 +217,6 @@ export class RaytraceRenderer {
     return materialGpuBuffer;
   }
 
-  // setMeshesStorage() {
-  //   const numMeshes = this.models.reduce((sum, model) => {
-  //     sum += model.facetGroups.length;
-  //     return sum;
-  //   }, 0);
-  //   const { size } = getSizeAndAlignmentOfUnsizedArrayElement(this._shaderInfo.storages.meshes);
-  //   const meshesStorage = makeStructuredView(this._shaderInfo.storages.meshes, new ArrayBuffer(size * numMeshes));
-  //   const meshesGpuBuffer = this.manager.createEmptyBuffer(size * numMeshes, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
-  //   let modelVertexOffset = 0;
-  //   let modelTriangleOffset = 0;
-  //   let meshIndex = 0;
-  //   for (const model of this.models) {
-  //     let meshTriangles = 0;
-  //     const trianglesInModel = model.vertexIndexes.length / 3;
-  //     for (const mesh of model.facetGroups) {
-  //       const materialIndex = this._materialIndexes.get(mesh.materialName);
-  //       meshesStorage.views[meshIndex].boxMax.set(mesh.boundingBox.max);
-  //       meshesStorage.views[meshIndex].boxMin.set(mesh.boundingBox.min);
-  //       meshesStorage.views[meshIndex].firstTriangle.set([mesh.triangleOffset + modelTriangleOffset]);
-  //       meshesStorage.views[meshIndex].materialIndex.set([materialIndex]);
-  //       meshesStorage.views[meshIndex].nextMeshFirstTriangle.set([mesh.triangleOffset + mesh.triangleCount + modelTriangleOffset]);
-  //       // used to pass the current material index to the vertex shader via instance index
-  //       this._meshInstanceInfo.push({ // NOT USED; abandoned idea
-  //         firstVertex: modelVertexOffset + mesh.startIndex,
-  //         vertexCount: mesh.length,
-  //         materialIndex
-  //       });
-  //       meshTriangles += mesh.triangleCount;
-  //       meshIndex++;
-  //     }
-  //     modelVertexOffset += meshTriangles * 3;
-  //     modelTriangleOffset += trianglesInModel;
-  //   }
-  //   this.manager.device.queue.writeBuffer(meshesGpuBuffer, 0, meshesStorage.arrayBuffer);
-  //   return meshesGpuBuffer;
-  // }
-
   setBVHStorage() {
     const bvh = new BVH();
     for (const model of this.models) {
@@ -274,9 +237,8 @@ export class RaytraceRenderer {
       const node = this.bvhStructure.bvhNodes[i];
       bvhView.views[i].boxMin.set(node.boundingBox.min);
       bvhView.views[i].boxMax.set(node.boundingBox.max);
-      bvhView.views[i].firstTriangleIndex.set([node.firstTriangleIndex]);
+      bvhView.views[i].index.set([node.index]);
       bvhView.views[i].numTriangles.set([node.triangleCount]);
-      bvhView.views[i].childIndexA.set([node.childIndexA ?? 0]);
     }
     this.manager.device.queue.writeBuffer(bvhGpuBuffer, 0, bvhView.arrayBuffer);
     return bvhGpuBuffer;
@@ -328,24 +290,13 @@ export class RaytraceRenderer {
 
   async loadModelTextures() {
     const textureBuffers = [];
+    const maxTx = this.manager.device.limits.maxSampledTexturesPerShaderStage;
     for (const model of this.models) {
       for (const material of Object.values(model.materials)) {
         const texturePath = material.map_Kd || material.map_Ka;
-        if (texturePath) {
+        if (texturePath && textureBuffers.length < maxTx) {
           const len = textureBuffers.push(await createTextureFromImage(this.manager.device, texturePath, { flipY: true, mips: true }));
           this._textureIndexes.set(texturePath, len - 1);
-        //   const imageBmp = await createImageBitmap(await (await fetch(texturePath).blob()));
-        //   const textureDescriptor = {
-        //     size: { width: imageBmp.width, height: imageBmp.height },
-        //     format: 'rgba8unorm', // presentationFormat?
-        //     usage: GPUTextureUsage.TEXTURE_BINDING
-        //   };
-        //   const texture = this.manager.device.createTexture(textureDescriptor);
-        //   this.manager.device.queue.copyExternalImageToTexture(
-        //     { source: imageBmp, flipY: true },
-        //     { texture },
-        //     textureDescriptor.size,
-        //   );
         }
       }
     }
@@ -364,11 +315,38 @@ export class RaytraceRenderer {
       layout: this._renderPipeline.getBindGroupLayout(1),
       entries: [
         {binding: this._shaderInfo.samplers.texSampler.binding, resource: sampler},
-        {binding: this._shaderInfo.textures.texture0.binding, resource: textureBuffers[0]},
-        {binding: this._shaderInfo.textures.texture1.binding, resource: textureBuffers[1]},
-        {binding: this._shaderInfo.textures.texture2.binding, resource: textureBuffers[2]},
+        ...textureBuffers.map((buffer, i) => (
+          {binding: this._shaderInfo.textures[`texture${i}`].binding, resource: buffer}
+        ))
       ]
     });
+  }
+
+  async createShader() {
+    const maxTx = this.manager.device.limits.maxSampledTexturesPerShaderStage;
+    let txBindings = [];
+    let txCases = [];
+    for (const model of this.models) {
+      for (const material of Object.values(model.materials)) {
+        const texturePath = material.map_Kd || material.map_Ka;
+        if (texturePath && txBindings.length < maxTx) {
+          const i = txBindings.length;
+          txBindings.push(
+            /*wgsl*/`@group(1) @binding(${i}) var texture${i}: texture_2d<f32>;`
+          );
+          txCases.push(
+            /*wgsl*/`case ${i}: {return textureSample(texture${i}, texSampler, hitInfo.texCoords) * hitInfo.material.color;}`
+          );
+        }
+      }
+    }
+    if (txBindings.length) {
+      const i = txBindings.length;
+      txBindings.push(/*wgsl*/`@group(1) @binding(${i}) var texSampler: sampler;`);
+    }
+    txBindings = txBindings.join('\n');
+    txCases = txCases.join('\n');
+    return await this.manager.createShader('raytracer', {txBindings, txCases});
   }
 }
 

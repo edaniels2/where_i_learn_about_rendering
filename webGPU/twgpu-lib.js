@@ -26,8 +26,11 @@ export async function createManager(options) { // typedef the options
     return new ComputeToCanvasManager({canvas, device, presentationFormat, usage});
   }
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-  const device = await adapter?.requestDevice();
-  const usage = options?.canvasTextureUsage ?? GPUTextureUsage.RENDER_ATTACHMENT;
+  const device = await adapter?.requestDevice({requiredLimits: {
+    maxSampledTexturesPerShaderStage: adapter.limits.maxSampledTexturesPerShaderStage
+  }});
+  console.log(device)
+  const usage = options?.canvasTextureUsage ?? GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC;
   return new Manager({canvas, device, presentationFormat, usage});
 }
 
@@ -325,7 +328,7 @@ export class Manager {
     this._indexBuffersInfo.push({buffer, format, length: data.length});
   }
 
-  createEmptyBuffer(size, usage) {
+  createEmptyBuffer(size, usage = GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST) {
     return this.device.createBuffer({ size, usage });
   }
 
@@ -385,6 +388,16 @@ export class Manager {
     if (!shaderInfo) {
       throw new Error(`Shader code '${name}' has not been resolved`);
     }
+    return shaderInfo.definitions;
+  }
+
+  async createShader(/**@type{string}*/ name, interpolations) {
+    const getCode = await import(`/webGPU/shaders/${name}.js`).then(m => m.code);
+    const code = getCode(interpolations);
+    const module = this.device.createShaderModule({ code });
+    const definitions = makeShaderDataDefinitions(code);
+    const shaderInfo = { module, definitions };
+    this._shaderModules.set(name, shaderInfo);
     return shaderInfo.definitions;
   }
 

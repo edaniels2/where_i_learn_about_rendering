@@ -120,6 +120,7 @@ export class BVHNode {
       STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
       STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
       STATS.totalLeaves++;
+      this.index = this.firstTriangleIndex;
       return;
     }
     STATS.maxTreeDepth = Math.max(STATS.maxTreeDepth, depth);
@@ -130,6 +131,7 @@ export class BVHNode {
       STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
       STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
       STATS.totalLeaves++;
+      this.index = this.firstTriangleIndex;
       return;
     }
     let i = this.firstTriangleIndex;
@@ -150,14 +152,17 @@ export class BVHNode {
       STATS.largestLeaf = Math.max(STATS.largestLeaf, this.triangleCount);
       STATS.smallestLeaf = Math.min(STATS.smallestLeaf, this.triangleCount);
       STATS.totalLeaves++;
+      this.index = this.firstTriangleIndex;
       return;
     }
-    this.childA = new BVHNode(/* leftBound,  */this.firstTriangleIndex, leftCount);
-    this.childB = new BVHNode(/* rightBound, */ i, this.triangleCount - leftCount);
+    this.childA = new BVHNode(this.firstTriangleIndex, leftCount);
+    this.childB = new BVHNode(i, this.triangleCount - leftCount);
     this.childIndexA = BVHNodeList.push(this.childA) - 1;
     this.childIndexB = BVHNodeList.push(this.childB) - 1;
     this.childA.split(depth + 1);
     this.childB.split(depth + 1);
+    this.triangleCount = 0;
+    this.index = this.childIndexA;
   }
 
   chooseSplit() {

@@ -254,9 +254,12 @@ d 1
 
 Ns 0
 
-map_Ka Mesh1152mesh11520031_diff.png
-map_Kd Mesh1152mesh11520031_diff.png
-map_d Mesh1152mesh11520031_diff.png
+#map_Ka Mesh1152mesh11520031_diff.png
+#map_Kd Mesh1152mesh11520031_diff.png
+#map_d Mesh1152mesh11520031_diff.png
+map_Ka Mesh1153mesh11530031_diff.png
+map_Kd Mesh1153mesh11530031_diff.png
+map_d Mesh1153mesh11530031_diff.png
 
 newmtl Mesh1355mesh13550031Mtl
 Material Color
@@ -438,9 +441,12 @@ d 1
 
 Ns 0
 
-map_Ka Mesh1270mesh12700031_diff.png
-map_Kd Mesh1270mesh12700031_diff.png
-map_d Mesh1270mesh12700031_diff.png
+#map_Ka Mesh1270mesh12700031_diff.png
+#map_Kd Mesh1270mesh12700031_diff.png
+#map_d Mesh1270mesh12700031_diff.png
+map_Ka Mesh1269mesh12690031_diff.png
+map_Kd Mesh1269mesh12690031_diff.png
+map_d Mesh1269mesh12690031_diff.png
 
 newmtl Mesh1345mesh13450031Mtl
 Material Color
