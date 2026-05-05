@@ -29,7 +29,11 @@ export class RaytraceRenderer {
     this.heatMap = false;
     this.heatMapThreshold = 1000;
     this.pauseRendering = false;
-    this.environmentLight = [1, 1, 1];
+    this.environmentLight = [0.846, 0.933, 0.949];
+    this.importancePointX = 0.385;
+    this.importancePointY = 0.6;
+    this.importancePointZ = -2.12;
+    this.importanceFactor = 0;
     this.infoEl = document.querySelector('pre#info');
     this.fps = new RollingAverage();
   }
@@ -120,6 +124,8 @@ export class RaytraceRenderer {
       environmentLight: this.environmentLight,
       heatMap: [Number(this.heatMap)],
       heatMapThreshold: [this.heatMapThreshold],
+      importanceFactor: [this.importanceFactor],
+      importancePoint: [this.importancePointX, this.importancePointY, this.importancePointZ],
     });
     this.manager.device.queue.writeBuffer(this._staticUniformsGpuBuffer, 0, this._staticUniforms.arrayBuffer);
 

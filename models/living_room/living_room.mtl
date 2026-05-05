@@ -68,7 +68,7 @@ Ks 0 0 0
 map_Kd textures/carpet-text3b.jpg
 
 newmtl CeilingLampshade
-Kd 1 1 1
+Kd 0.5 0.5 0.5
 Ka 0 0 0
 Ns 8000
 d 0.6

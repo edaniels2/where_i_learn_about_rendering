@@ -3,7 +3,7 @@
 
 newmtl breakfast_room:Artwork
 illum 4
-Kd 0.40 0.40 0.40
+Kd 0.80 0.80 0.80
 Ka 0.60 0.60 0.60
 Tf 1.00 1.00 1.00
 map_Kd picture3.jpg
@@ -71,7 +71,7 @@ Ka 0.50 0.40 0.40
 Tf 1.00 1.00 1.00
 Ni 1.00
 Ks 0.08 0.04 0.0
-Ke 1 0.7 0.6
+Ke 0.75 0.7 0.6
 i 0.12
 Ns 20.00
 d 0.92

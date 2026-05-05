@@ -58,6 +58,8 @@ struct StaticUniforms {
   ndcParams: vec2f,
   heatMap: u32,
   heatMapThreshold: u32,
+  importancePoint: vec3f,
+  importanceFactor: f32,
 };
 
 const far = 1e6;
@@ -107,8 +109,18 @@ fn trace(rayPtr: ptr<function, Ray>, rngState: ptr<function, u32>) -> vec4f {
   for (var i: u32 = 0; i <= maxBounceCount; i++) {
     bvhCalculateRayCollision(rayPtr, &hitInfo, &numTests);
     if (hitInfo.hit) {
-      let diffuseDir = normalize(hitInfo.normal + randomDirection(rngState));
       let specularDir = reflect((*rayPtr).direction, hitInfo.normal);
+      let diffuseBounce = hitInfo.normal + randomDirection(rngState);
+      // almost certainly not a correct way to do importance sampling, but it's
+      // something I can wrap my head around and it more or less does what I want
+      let originToLight = staticUniforms.importancePoint - hitInfo.hitPoint;
+      let facingRatio = 1 / (1 + exp(-dot(hitInfo.normal, originToLight)));
+      let dSq = dot(originToLight, originToLight);
+      let diffuseDir = normalize(interpolate(
+        diffuseBounce,
+        originToLight,
+        facingRatio * staticUniforms.importanceFactor * rand1d(rngState) / dSq
+      ));
       (*rayPtr).direction = normalize(interpolate(diffuseDir, specularDir, hitInfo.material.reflection));
       (*rayPtr).invDir = vec3f(1) / (*rayPtr).direction;
       (*rayPtr).origin = hitInfo.hitPoint;
@@ -147,18 +159,19 @@ fn getMaterialColor(hitInfo: HitInfo) -> vec4f {
 
 fn bvhCalculateRayCollision(rayPtr: ptr<function, Ray>, hitInfoPtr: ptr<function, HitInfo>, numTestsPtr: ptr<function, u32>) {
   let maxLp = arrayLength(&bvhNodes) * 2;
+  let ray = *rayPtr;
   var lpCount: u32 = 0;
   var nodesToTest: array<u32, 64>;
-  var sp: i32 = 1;
+  var sp = 1;
   var node: BVHNode = bvhNodes[0];
-  while (sp >= 0 && lpCount < maxLp) {
+  while (sp > 0 && lpCount < maxLp) {
     lpCount++;
     if (node.numTriangles != 0) {
       let end = node.index + node.numTriangles;
       for (var i: u32 = node.index; i < end; i++) {
         let tri = triangles[i];
         let mtl = materials[tri.materialIndex];
-        rayTriangleIntersection(rayPtr, tri, mtl, hitInfoPtr);
+        rayTriangleIntersection(ray, tri, mtl, hitInfoPtr);
         (*numTestsPtr)++;
       }
       sp--;
@@ -167,8 +180,8 @@ fn bvhCalculateRayCollision(rayPtr: ptr<function, Ray>, hitInfoPtr: ptr<function
     }
     let childA = bvhNodes[node.index];
     let childB = bvhNodes[node.index + 1];
-    let distA = rayBoxIntersection(rayPtr, childA.boxMin, childA.boxMax);
-    let distB = rayBoxIntersection(rayPtr, childB.boxMin, childB.boxMax);
+    let distA = rayBoxIntersection(ray, childA.boxMin, childA.boxMax);
+    let distB = rayBoxIntersection(ray, childB.boxMin, childB.boxMax);
     var nearDist = distA;
     var nearChild = childA;
     var farDist = distB;
@@ -206,8 +219,7 @@ fn bvhCalculateRayCollision(rayPtr: ptr<function, Ray>, hitInfoPtr: ptr<function
 //   }
 // }
 
-fn rayTriangleIntersection(rayPtr: ptr<function, Ray>, tri: Triangle, material: Material, hitInfoPtr: ptr<function, HitInfo>) {
-  let ray = *rayPtr;
+fn rayTriangleIntersection(ray: Ray, tri: Triangle, material: Material, hitInfoPtr: ptr<function, HitInfo>) {
   let edge1 = tri.B - tri.A;
   let edge2 = tri.C - tri.A;
   let normal = vec3f(tri.sfcNormX, tri.sfcNormY, tri.sfcNormZ);
@@ -258,8 +270,7 @@ fn randomDirection(rngState: ptr<function, u32>) -> vec3f {
   return normalize(vec3(x, y, z));
 }
 
-fn rayBoxIntersection(rayPtr: ptr<function, Ray>, boxMin: vec3f, boxMax: vec3f) -> f32 {
-  let ray = *rayPtr;
+fn rayBoxIntersection(ray: Ray, boxMin: vec3f, boxMax: vec3f) -> f32 {
   let tMin: vec3f = (boxMin - ray.origin) * ray.invDir;
   let tMax: vec3f = (boxMax - ray.origin) * ray.invDir;
   let t1 = min(tMin, tMax);
